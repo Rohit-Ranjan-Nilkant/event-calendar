@@ -1,6 +1,8 @@
 import { NextRequest } from "next/server"
 import { requireAdmin } from "@/lib/auth"
+import { getSession } from "@/lib/session"
 import { prisma } from "@/lib/prisma"
+import { INTEREST_KEYWORDS } from "@/lib/interests"
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
@@ -9,17 +11,55 @@ export async function GET(request: NextRequest) {
   const source = searchParams.get("source")
   const startDate = searchParams.get("startDate")
   const endDate = searchParams.get("endDate")
+  const hearted = searchParams.get("hearted")
+  const discover = searchParams.get("discover")
+
+  const session = await getSession()
 
   const where: Record<string, unknown> = {}
+
+  // ── hearted: return only saved events for current user ────────────────────
+  if (hearted === "true") {
+    if (!session) return Response.json([])
+    const saved = await prisma.userEvent.findMany({
+      where: { userId: session.userId },
+      select: { eventId: true },
+    })
+    where.id = { in: saved.map((s) => s.eventId) }
+  }
+
+  // ── discover: return events matching user's interests ─────────────────────
+  if (discover === "true" && session) {
+    const interests = await prisma.userInterest.findMany({
+      where: { userId: session.userId },
+      select: { interest: true },
+    })
+    if (interests.length > 0) {
+      const keywords: string[] = []
+      for (const { interest } of interests) {
+        const kws = INTEREST_KEYWORDS[interest] ?? [interest.toLowerCase()]
+        keywords.push(...kws)
+      }
+      const uniqueKws = [...new Set(keywords)]
+      where.OR = uniqueKws.map((kw) => ({
+        OR: [
+          { title: { contains: kw, mode: "insensitive" } },
+          { description: { contains: kw, mode: "insensitive" } },
+          { category: { contains: kw, mode: "insensitive" } },
+          { tags: { contains: kw, mode: "insensitive" } },
+        ],
+      }))
+    }
+  }
 
   if (category && category !== "all") where.category = category
   if (source && source !== "all") where.source = source
   if (search) {
     where.OR = [
-      { title: { contains: search } },
-      { description: { contains: search } },
-      { location: { contains: search } },
-      { organizer: { contains: search } },
+      { title: { contains: search, mode: "insensitive" } },
+      { description: { contains: search, mode: "insensitive" } },
+      { location: { contains: search, mode: "insensitive" } },
+      { organizer: { contains: search, mode: "insensitive" } },
     ]
   }
   if (startDate) {
@@ -34,7 +74,17 @@ export async function GET(request: NextRequest) {
     orderBy: { startDate: "asc" },
   })
 
-  return Response.json(events)
+  // Annotate with hearted status for the current user
+  let heartedIds = new Set<string>()
+  if (session) {
+    const saved = await prisma.userEvent.findMany({
+      where: { userId: session.userId, eventId: { in: events.map((e) => e.id) } },
+      select: { eventId: true },
+    })
+    heartedIds = new Set(saved.map((s) => s.eventId))
+  }
+
+  return Response.json(events.map((e) => ({ ...e, hearted: heartedIds.has(e.id) })))
 }
 
 export async function POST(request: NextRequest) {

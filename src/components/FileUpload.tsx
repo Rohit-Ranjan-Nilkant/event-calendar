@@ -9,13 +9,16 @@ import {
 } from "lucide-react"
 import toast from "react-hot-toast"
 
+interface UploadResult {
+  imported: number
+  duplicates: number
+  skipped: number
+}
+
 export default function FileUpload() {
   const [file, setFile] = useState<File | null>(null)
   const [uploading, setUploading] = useState(false)
-  const [results, setResults] = useState<{
-    imported: number
-    skipped: number
-  } | null>(null)
+  const [results, setResults] = useState<UploadResult | null>(null)
   const [dragOver, setDragOver] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -34,16 +37,16 @@ export default function FileUpload() {
         body: formData,
       })
 
-      const data = await res.json()
+      const data = await res.json() as UploadResult & { error?: string }
       if (!res.ok) throw new Error(data.error || "Upload failed")
 
       setResults(data)
-      toast.success(`Successfully imported ${data.imported} events!`)
+      const parts = [`${data.imported} event${data.imported !== 1 ? "s" : ""} imported`]
+      if (data.duplicates > 0) parts.push(`${data.duplicates} duplicate${data.duplicates !== 1 ? "s" : ""} skipped`)
+      toast.success(parts.join(", ") + "!")
       setFile(null)
     } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Upload failed"
-      )
+      toast.error(error instanceof Error ? error.message : "Upload failed")
     } finally {
       setUploading(false)
     }
@@ -97,10 +100,7 @@ export default function FileUpload() {
       </div>
 
       <div
-        onDragOver={(e) => {
-          e.preventDefault()
-          setDragOver(true)
-        }}
+        onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
         onDragLeave={() => setDragOver(false)}
         onDrop={handleDrop}
         onClick={() => inputRef.current?.click()}
@@ -124,9 +124,7 @@ export default function FileUpload() {
             <FileSpreadsheet className="h-8 w-8 text-green-600 dark:text-green-400" />
             <div>
               <p className="text-sm font-medium text-gray-900 dark:text-white">{file.name}</p>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                {(file.size / 1024).toFixed(1)} KB
-              </p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">{(file.size / 1024).toFixed(1)} KB</p>
             </div>
           </div>
         ) : (
@@ -156,16 +154,19 @@ export default function FileUpload() {
         <div className="bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg p-4">
           <div className="flex items-center gap-2 mb-2">
             <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400" />
-            <span className="text-sm font-medium text-green-800 dark:text-green-300">
-              Import Complete
-            </span>
+            <span className="text-sm font-medium text-green-800 dark:text-green-300">Import Complete</span>
           </div>
           <p className="text-sm text-green-700 dark:text-green-400">
-            {results.imported} events imported successfully
+            {results.imported} event{results.imported !== 1 ? "s" : ""} imported successfully
           </p>
+          {results.duplicates > 0 && (
+            <p className="text-sm text-blue-700 dark:text-blue-400 mt-1">
+              {results.duplicates} duplicate event{results.duplicates !== 1 ? "s" : ""} skipped
+            </p>
+          )}
           {results.skipped > 0 && (
             <p className="text-sm text-yellow-700 dark:text-yellow-400 mt-1">
-              {results.skipped} rows skipped (missing required fields)
+              {results.skipped} row{results.skipped !== 1 ? "s" : ""} skipped (missing required fields)
             </p>
           )}
         </div>

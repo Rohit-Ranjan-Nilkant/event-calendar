@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { LayoutDashboard, List, PlusCircle, Upload, Users } from "lucide-react"
+import { LayoutDashboard, List, PlusCircle, Upload, Users, Settings } from "lucide-react"
 
 const navigation = [
   { name: "Dashboard", href: "/admin/events", icon: LayoutDashboard },
@@ -10,6 +10,7 @@ const navigation = [
   { name: "Add Event", href: "/admin/events/new", icon: PlusCircle },
   { name: "Import Events", href: "/admin/upload", icon: Upload },
   { name: "Users", href: "/admin/users", icon: Users },
+  { name: "Settings", href: "/admin/settings", icon: Settings },
 ]
 
 export default function AdminSidebar() {
@@ -22,7 +23,9 @@ export default function AdminSidebar() {
       </div>
       <nav className="flex-1 px-3 py-4 space-y-0.5">
         {navigation.map((item) => {
-          const active = pathname === item.href || (item.href !== "/admin/events" && pathname.startsWith(item.href))
+          const active =
+            pathname === item.href ||
+            (item.href !== "/admin/events" && pathname.startsWith(item.href))
           return (
             <Link
               key={item.name}
@@ -33,7 +36,9 @@ export default function AdminSidebar() {
                   : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white"
               }`}
             >
-              <item.icon className={`h-5 w-5 ${active ? "text-indigo-600 dark:text-indigo-400" : "text-gray-400"}`} />
+              <item.icon
+                className={`h-5 w-5 ${active ? "text-indigo-600 dark:text-indigo-400" : "text-gray-400"}`}
+              />
               {item.name}
             </Link>
           )

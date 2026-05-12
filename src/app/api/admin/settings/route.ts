@@ -1,0 +1,38 @@
+import { requireAdmin } from "@/lib/auth"
+import { prisma } from "@/lib/prisma"
+import { getPlatformSettings } from "@/lib/platform"
+
+export async function GET() {
+  const settings = await getPlatformSettings()
+  return Response.json(settings)
+}
+
+export async function PUT(request: Request) {
+  await requireAdmin()
+  const body = await request.json()
+
+  const settings = await prisma.platformSettings.upsert({
+    where: { id: "singleton" },
+    update: {
+      platformName: body.platformName,
+      logoUrl: body.logoUrl || null,
+      primaryColor: body.primaryColor || "indigo",
+      privacyPolicyUrl: body.privacyPolicyUrl || null,
+      termsUrl: body.termsUrl || null,
+      customPrivacyText: body.customPrivacyText || null,
+      customTermsText: body.customTermsText || null,
+    },
+    create: {
+      id: "singleton",
+      platformName: body.platformName || "DS EventHub",
+      logoUrl: body.logoUrl || null,
+      primaryColor: body.primaryColor || "indigo",
+      privacyPolicyUrl: body.privacyPolicyUrl || null,
+      termsUrl: body.termsUrl || null,
+      customPrivacyText: body.customPrivacyText || null,
+      customTermsText: body.customTermsText || null,
+    },
+  })
+
+  return Response.json(settings)
+}

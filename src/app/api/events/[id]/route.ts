@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server"
 import { requireAdmin } from "@/lib/auth"
+import { getSession } from "@/lib/session"
 import { prisma } from "@/lib/prisma"
 
 export async function GET(
@@ -9,7 +10,18 @@ export async function GET(
   const { id } = await params
   const event = await prisma.event.findUnique({ where: { id } })
   if (!event) return Response.json({ error: "Event not found" }, { status: 404 })
-  return Response.json(event)
+
+  // Annotate with hearted status for current user
+  const session = await getSession()
+  let hearted = false
+  if (session) {
+    const saved = await prisma.userEvent.findUnique({
+      where: { userId_eventId: { userId: session.userId, eventId: id } },
+    })
+    hearted = !!saved
+  }
+
+  return Response.json({ ...event, hearted })
 }
 
 export async function PUT(

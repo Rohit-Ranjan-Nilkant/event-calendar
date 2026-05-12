@@ -27,6 +27,7 @@ import {
   X,
 } from "lucide-react"
 import type { EventData, CalendarView } from "@/types"
+import HeartButton from "./HeartButton"
 
 interface CalendarProps {
   events: EventData[]
@@ -83,11 +84,7 @@ export default function EventCalendar({ events }: CalendarProps) {
     events.filter((event) => isSameDay(parseISO(event.startDate), date))
 
   const sortedEvents = useMemo(
-    () =>
-      [...events].sort(
-        (a, b) =>
-          new Date(a.startDate).getTime() - new Date(b.startDate).getTime()
-      ),
+    () => [...events].sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime()),
     [events]
   )
 
@@ -104,10 +101,7 @@ export default function EventCalendar({ events }: CalendarProps) {
                 : format(currentDate, "MMMM yyyy")}
           </h2>
           <div className="flex items-center gap-1">
-            <button
-              onClick={navigateBack}
-              className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
-            >
+            <button onClick={navigateBack} className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors">
               <ChevronLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" />
             </button>
             <button
@@ -116,10 +110,7 @@ export default function EventCalendar({ events }: CalendarProps) {
             >
               Today
             </button>
-            <button
-              onClick={navigateForward}
-              className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
-            >
+            <button onClick={navigateForward} className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors">
               <ChevronRight className="h-5 w-5 text-gray-600 dark:text-gray-400" />
             </button>
           </div>
@@ -145,21 +136,15 @@ export default function EventCalendar({ events }: CalendarProps) {
       {/* Calendar Grid */}
       {view !== "list" ? (
         <div className="p-4">
-          {/* Day headers */}
           <div className="grid grid-cols-7 mb-2">
             {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
-              <div
-                key={day}
-                className="text-center text-xs font-semibold text-gray-500 dark:text-gray-400 py-2"
-              >
+              <div key={day} className="text-center text-xs font-semibold text-gray-500 dark:text-gray-400 py-2">
                 {day}
               </div>
             ))}
           </div>
 
-          <div
-            className={`grid grid-cols-7 ${view === "week" ? "" : "auto-rows-[120px]"}`}
-          >
+          <div className={`grid grid-cols-7 ${view === "week" ? "" : "auto-rows-[120px]"}`}>
             {days.map((day) => {
               const dayEvents = getEventsForDay(day)
               const isCurrentMonth = isSameMonth(day, currentDate)
@@ -213,27 +198,27 @@ export default function EventCalendar({ events }: CalendarProps) {
             </div>
           ) : (
             sortedEvents.map((event) => (
-              <button
-                key={event.id}
-                onClick={() => setSelectedEvent(event)}
-                className="w-full text-left px-6 py-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 flex items-start gap-4 transition-colors"
-              >
-                <div className="flex-shrink-0 w-14 text-center">
+              <div key={event.id} className="flex items-start gap-4 px-6 py-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                <button
+                  onClick={() => setSelectedEvent(event)}
+                  className="flex-shrink-0 w-14 text-center"
+                >
                   <div className="text-sm font-semibold text-indigo-600 dark:text-indigo-400">
                     {format(parseISO(event.startDate), "MMM")}
                   </div>
                   <div className="text-2xl font-bold text-gray-900 dark:text-white">
                     {format(parseISO(event.startDate), "d")}
                   </div>
-                </div>
-                <div className="flex-1 min-w-0">
+                </button>
+                <button
+                  onClick={() => setSelectedEvent(event)}
+                  className="flex-1 min-w-0 text-left"
+                >
                   <div className="flex items-center gap-2 flex-wrap">
                     <h3 className="text-sm font-semibold text-gray-900 dark:text-white truncate">
                       {event.title}
                     </h3>
-                    <span
-                      className={`text-xs px-2 py-0.5 rounded-full border ${getCategoryColor(event.category)}`}
-                    >
+                    <span className={`text-xs px-2 py-0.5 rounded-full border ${getCategoryColor(event.category)}`}>
                       {event.category}
                     </span>
                   </div>
@@ -250,14 +235,16 @@ export default function EventCalendar({ events }: CalendarProps) {
                     )}
                     <span className="flex items-center gap-1">
                       <Clock className="h-3 w-3" />
-                      {format(
-                        parseISO(event.startDate),
-                        "MMM d, yyyy 'at' h:mm a"
-                      )}
+                      {format(parseISO(event.startDate), "MMM d, yyyy 'at' h:mm a")}
                     </span>
                   </div>
-                </div>
-              </button>
+                </button>
+                {event.id && (
+                  <div className="shrink-0 self-center">
+                    <HeartButton eventId={event.id} initialHearted={event.hearted} size="sm" />
+                  </div>
+                )}
+              </div>
             ))
           )}
         </div>
@@ -279,18 +266,21 @@ export default function EventCalendar({ events }: CalendarProps) {
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white leading-snug">
                   {selectedEvent.title}
                 </h3>
-                <span
-                  className={`inline-block text-xs px-2 py-0.5 rounded-full border mt-1.5 ${getCategoryColor(selectedEvent.category)}`}
-                >
+                <span className={`inline-block text-xs px-2 py-0.5 rounded-full border mt-1.5 ${getCategoryColor(selectedEvent.category)}`}>
                   {selectedEvent.category}
                 </span>
               </div>
-              <button
-                onClick={() => setSelectedEvent(null)}
-                className="p-1 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors shrink-0"
-              >
-                <X className="h-5 w-5" />
-              </button>
+              <div className="flex items-center gap-2 shrink-0">
+                {selectedEvent.id && (
+                  <HeartButton eventId={selectedEvent.id} initialHearted={selectedEvent.hearted} />
+                )}
+                <button
+                  onClick={() => setSelectedEvent(null)}
+                  className="p-1 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
             </div>
 
             {/* Modal body */}
@@ -304,10 +294,7 @@ export default function EventCalendar({ events }: CalendarProps) {
                 <div className="flex items-start gap-2 text-gray-600 dark:text-gray-400">
                   <Clock className="h-4 w-4 text-gray-400 dark:text-gray-500 mt-0.5 shrink-0" />
                   <span>
-                    {format(
-                      parseISO(selectedEvent.startDate),
-                      "EEEE, MMMM d, yyyy 'at' h:mm a"
-                    )}
+                    {format(parseISO(selectedEvent.startDate), "EEEE, MMMM d, yyyy 'at' h:mm a")}
                     {selectedEvent.endDate &&
                       ` – ${format(parseISO(selectedEvent.endDate), "MMMM d, yyyy 'at' h:mm a")}`}
                   </span>
@@ -322,6 +309,15 @@ export default function EventCalendar({ events }: CalendarProps) {
                   <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
                     <span className="text-gray-400 dark:text-gray-500 font-medium">Organizer:</span>
                     <span>{selectedEvent.organizer}</span>
+                  </div>
+                )}
+                {selectedEvent.tags && (
+                  <div className="flex flex-wrap gap-1 pt-1">
+                    {selectedEvent.tags.split(",").map((tag) => (
+                      <span key={tag} className="text-xs px-2 py-0.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 rounded-full">
+                        {tag.trim()}
+                      </span>
+                    ))}
                   </div>
                 )}
               </div>
@@ -341,9 +337,7 @@ export default function EventCalendar({ events }: CalendarProps) {
                 </a>
               )}
               <button
-                onClick={() => {
-                  router.push(`/dashboard/events/${selectedEvent.id}`)
-                }}
+                onClick={() => router.push(`/dashboard/events/${selectedEvent.id}`)}
                 className="flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 text-sm font-medium rounded-lg transition-colors"
               >
                 View Details

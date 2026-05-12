@@ -4,6 +4,7 @@ import { useState, useEffect, use } from "react"
 import Link from "next/link"
 import { format, parseISO } from "date-fns"
 import { ArrowLeft, Calendar, MapPin, ExternalLink, Clock, Tag, User, Globe } from "lucide-react"
+import HeartButton from "@/components/HeartButton"
 
 interface EventDetail {
   id: string
@@ -17,6 +18,8 @@ interface EventDetail {
   organizer?: string
   source?: string
   isAllDay?: boolean
+  tags?: string
+  hearted?: boolean
 }
 
 const categoryColors: Record<string, string> = {
@@ -80,11 +83,16 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
               <div className="text-4xl font-bold">{format(startDt, "d")}</div>
               <div className="text-xl font-medium opacity-90">{format(startDt, "MMMM yyyy")}</div>
             </div>
-            {event.category && (
-              <span className={`text-xs px-3 py-1.5 rounded-full font-semibold ${colorClass}`}>
-                {event.category}
-              </span>
-            )}
+            <div className="flex items-center gap-3">
+              {event.category && (
+                <span className={`text-xs px-3 py-1.5 rounded-full font-semibold ${colorClass}`}>
+                  {event.category}
+                </span>
+              )}
+              <div className="bg-white/10 rounded-full">
+                <HeartButton eventId={event.id} initialHearted={event.hearted} />
+              </div>
+            </div>
           </div>
         </div>
 
@@ -139,6 +147,22 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
             )}
           </div>
 
+          {event.tags && (
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <Tag className="h-4 w-4 text-gray-400" />
+                <span className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Topics</span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {event.tags.split(",").map((tag) => tag.trim()).filter(Boolean).map((tag) => (
+                  <span key={tag} className="text-xs px-2.5 py-1 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 rounded-full">
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
           {event.description && (
             <div>
               <div className="flex items-center gap-2 mb-3">
@@ -152,7 +176,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
           )}
 
           {event.url && (
-            <div className="pt-2 border-t border-gray-100 dark:border-gray-800">
+            <div className="pt-2 border-t border-gray-100 dark:border-gray-800 flex items-center gap-3">
               <a
                 href={event.url}
                 target="_blank"

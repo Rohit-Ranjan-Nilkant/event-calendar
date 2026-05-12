@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Globe, Loader2, Calendar, MapPin, Tag } from "lucide-react"
+import { Globe, Loader2, Calendar, MapPin, Tag, Sparkles, AlertTriangle } from "lucide-react"
 import toast from "react-hot-toast"
 
 interface CrawledEvent {
@@ -19,10 +19,13 @@ const PAGE_SIZE = 50
 export default function UrlCrawler() {
   const [url, setUrl] = useState("")
   const [loading, setLoading] = useState(false)
+  const [useLLM, setUseLLM] = useState(false)
   const [crawledEvents, setCrawledEvents] = useState<CrawledEvent[]>([])
   const [selectedEvents, setSelectedEvents] = useState<Set<number>>(new Set())
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
   const [importing, setImporting] = useState(false)
+  const [previouslyScrapped, setPreviouslyScrapped] = useState(false)
+  const [lastScrape, setLastScrape] = useState<string | null>(null)
 
   const handleCrawl = async () => {
     if (!url) return
@@ -31,16 +34,23 @@ export default function UrlCrawler() {
     setCrawledEvents([])
     setSelectedEvents(new Set())
     setVisibleCount(PAGE_SIZE)
+    setPreviouslyScrapped(false)
+    setLastScrape(null)
 
     try {
       const res = await fetch("/api/upload/url", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url }),
+        body: JSON.stringify({ url, useLLM }),
       })
 
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || "Crawl failed")
+
+      if (data.previouslyScrapped) {
+        setPreviouslyScrapped(true)
+        setLastScrape(data.lastScrape)
+      }
 
       if (data.events.length === 0) {
         toast.error("No events found on this page")
@@ -48,14 +58,7 @@ export default function UrlCrawler() {
       }
 
       setCrawledEvents(data.events)
-      // Pre-select all by default (up to first 200)
-      setSelectedEvents(
-        new Set(
-          data.events
-            .slice(0, 200)
-            .map((_: CrawledEvent, i: number) => i)
-        )
-      )
+      setSelectedEvents(new Set(data.events.slice(0, 200).map((_: CrawledEvent, i: number) => i)))
       toast.success(`Found ${data.events.length} event${data.events.length !== 1 ? "s" : ""}!`)
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Crawl failed")
@@ -76,12 +79,16 @@ export default function UrlCrawler() {
         body: JSON.stringify({ events: eventsToImport, sourceUrl: url }),
       })
 
-      const data = await res.json()
+      const data = await res.json() as { imported: number; duplicates: number; total: number; error?: string }
       if (!res.ok) throw new Error(data.error || "Import failed")
 
-      toast.success(`Imported ${data.imported} events!`)
+      const parts = [`Imported ${data.imported} event${data.imported !== 1 ? "s" : ""}`]
+      if (data.duplicates > 0) parts.push(`${data.duplicates} duplicate${data.duplicates !== 1 ? "s" : ""} skipped`)
+      toast.success(parts.join(", ") + "!")
+
       setCrawledEvents([])
       setUrl("")
+      setPreviouslyScrapped(false)
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Import failed")
     } finally {
@@ -107,48 +114,83 @@ export default function UrlCrawler() {
   const formatDate = (raw?: string) => {
     if (!raw) return null
     try {
-      return new Date(raw).toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-      })
-    } catch {
-      return raw
-    }
+      return new Date(raw).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+    } catch { return raw }
   }
 
   const visible = crawledEvents.slice(0, visibleCount)
+  const hasAnthropicKey = typeof window !== "undefined" // key presence checked server-side
 
   return (
     <div className="space-y-6">
       <div>
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Import from URL</h3>
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-          Paste an events page URL and we&apos;ll extract all events automatically
+          Paste an events page URL and we&apos;ll extract all events automatically.
+          Supports JSON-LD, WordPress/Tribe, iCal, Eventbrite, Lu.ma, Meetup, and HTML layouts.
         </p>
       </div>
 
-      <div className="flex gap-3">
-        <div className="flex-1 relative">
-          <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-          <input
-            type="url"
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleCrawl()}
-            placeholder="https://example.com/events"
-            className="w-full pl-10 pr-4 py-2.5 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400"
-          />
+      <div className="flex flex-col gap-3">
+        <div className="flex gap-3">
+          <div className="flex-1 relative">
+            <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+            <input
+              type="url"
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleCrawl()}
+              placeholder="https://example.com/events"
+              className="w-full pl-10 pr-4 py-2.5 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400"
+            />
+          </div>
+          <button
+            onClick={handleCrawl}
+            disabled={loading || !url}
+            className="px-6 py-2.5 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-2 whitespace-nowrap transition-colors"
+          >
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+            {loading ? "Crawling…" : "Crawl"}
+          </button>
         </div>
-        <button
-          onClick={handleCrawl}
-          disabled={loading || !url}
-          className="px-6 py-2.5 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-2 whitespace-nowrap transition-colors"
-        >
-          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-          {loading ? "Crawling…" : "Crawl"}
-        </button>
+
+        {/* LLM toggle */}
+        <label className="flex items-center gap-3 cursor-pointer w-fit">
+          <div className="relative">
+            <input
+              type="checkbox"
+              className="sr-only peer"
+              checked={useLLM}
+              onChange={(e) => setUseLLM(e.target.checked)}
+            />
+            <div className="w-10 h-5 bg-gray-200 dark:bg-gray-700 peer-checked:bg-indigo-600 rounded-full transition-colors" />
+            <div className="absolute top-0.5 left-0.5 h-4 w-4 bg-white rounded-full transition-transform peer-checked:translate-x-5 shadow" />
+          </div>
+          <span className="flex items-center gap-1.5 text-sm text-gray-700 dark:text-gray-300">
+            <Sparkles className="h-4 w-4 text-amber-500" />
+            Use AI (Claude) for extraction
+          </span>
+          <span className="text-xs text-gray-400 dark:text-gray-500">(requires ANTHROPIC_API_KEY)</span>
+        </label>
+        {useLLM && !hasAnthropicKey && (
+          <p className="text-xs text-amber-700 dark:text-amber-400 flex items-center gap-1">
+            <AlertTriangle className="h-3.5 w-3.5" />
+            AI extraction will silently fall back to standard crawling if the API key is not set.
+          </p>
+        )}
       </div>
+
+      {/* Previously scraped warning */}
+      {previouslyScrapped && lastScrape && (
+        <div className="flex items-start gap-2 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg px-4 py-3 text-sm text-amber-800 dark:text-amber-300">
+          <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+          <span>
+            This URL was previously scraped on{" "}
+            <strong>{new Date(lastScrape).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</strong>.
+            Duplicate events will be skipped automatically on import.
+          </span>
+        </div>
+      )}
 
       {crawledEvents.length > 0 && (
         <div className="space-y-4">
@@ -156,9 +198,7 @@ export default function UrlCrawler() {
           <div className="flex items-center justify-between">
             <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
               Found{" "}
-              <span className="text-indigo-600 dark:text-indigo-400 font-semibold">
-                {crawledEvents.length}
-              </span>{" "}
+              <span className="text-indigo-600 dark:text-indigo-400 font-semibold">{crawledEvents.length}</span>{" "}
               event{crawledEvents.length !== 1 ? "s" : ""} —{" "}
               {selectedEvents.size} selected
             </p>
@@ -166,13 +206,10 @@ export default function UrlCrawler() {
               onClick={toggleAll}
               className="text-sm text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 font-medium"
             >
-              {selectedEvents.size === crawledEvents.length
-                ? "Deselect All"
-                : "Select All"}
+              {selectedEvents.size === crawledEvents.length ? "Deselect All" : "Select All"}
             </button>
           </div>
 
-          {/* Large result warning */}
           {crawledEvents.length > 100 && (
             <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg px-4 py-2.5 text-sm text-amber-800 dark:text-amber-300">
               Large result set — showing {visibleCount} of {crawledEvents.length}.
@@ -235,7 +272,6 @@ export default function UrlCrawler() {
               </label>
             ))}
 
-            {/* Show more */}
             {visibleCount < crawledEvents.length && (
               <button
                 onClick={() => setVisibleCount((n) => n + PAGE_SIZE)}
@@ -254,8 +290,7 @@ export default function UrlCrawler() {
             className="w-full py-2.5 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 flex items-center justify-center gap-2 transition-colors"
           >
             {importing && <Loader2 className="h-4 w-4 animate-spin" />}
-            Import {selectedEvents.size} Selected Event
-            {selectedEvents.size !== 1 ? "s" : ""}
+            Import {selectedEvents.size} Selected Event{selectedEvents.size !== 1 ? "s" : ""}
           </button>
         </div>
       )}

@@ -5,6 +5,7 @@ import Link from "next/link"
 import { format, parseISO } from "date-fns"
 import { Search, Filter, MapPin, Clock, ExternalLink, ChevronRight } from "lucide-react"
 import type { EventData } from "@/types"
+import HeartButton from "@/components/HeartButton"
 
 const CATEGORIES = ["all","General","Conference","Workshop","Webinar","Seminar","Meetup","Training","Award","Networking"]
 const SOURCES = ["all","manual","excel","url"]
@@ -35,7 +36,23 @@ export default function EventsPage() {
     if (source !== "all") params.set("source", source)
     if (search) params.set("search", search)
     const res = await fetch(`/api/events?${params}`)
-    if (res.ok) setEvents(await res.json())
+    if (res.ok) {
+      const data = await res.json()
+      setEvents(
+        data.map((e: Record<string, unknown>) => ({
+          ...e,
+          startDate:
+            typeof e.startDate === "string"
+              ? e.startDate
+              : new Date(e.startDate as number).toISOString(),
+          endDate: e.endDate
+            ? typeof e.endDate === "string"
+              ? e.endDate
+              : new Date(e.endDate as number).toISOString()
+            : undefined,
+        }))
+      )
+    }
     setLoading(false)
   }, [category, source, search])
 
@@ -76,13 +93,12 @@ export default function EventsPage() {
       ) : (
         <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 divide-y divide-gray-100 dark:divide-gray-800">
           {events.map((event) => (
-            <Link key={event.id} href={`/dashboard/events/${event.id}`}
-              className="px-6 py-4 flex items-start gap-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 group cursor-pointer block">
-              <div className="flex-shrink-0 w-14 text-center pt-1">
+            <div key={event.id} className="flex items-start gap-4 px-6 py-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 group transition-colors">
+              <Link href={`/dashboard/events/${event.id}`} className="flex-shrink-0 w-14 text-center pt-1">
                 <div className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 uppercase">{format(parseISO(event.startDate), "MMM")}</div>
                 <div className="text-2xl font-bold text-gray-900 dark:text-white">{format(parseISO(event.startDate), "d")}</div>
-              </div>
-              <div className="flex-1 min-w-0">
+              </Link>
+              <Link href={`/dashboard/events/${event.id}`} className="flex-1 min-w-0 block">
                 <div className="flex items-center gap-2 flex-wrap">
                   <h3 className="text-sm font-semibold text-gray-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">{event.title}</h3>
                   <span className={`text-xs px-2 py-0.5 rounded-full ${categoryColors[event.category || "General"] || categoryColors.General}`}>{event.category}</span>
@@ -93,9 +109,14 @@ export default function EventsPage() {
                   {event.location && <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{event.location}</span>}
                   {event.url && <span className="flex items-center gap-1 text-indigo-600 dark:text-indigo-400"><ExternalLink className="h-3 w-3" />Link</span>}
                 </div>
+              </Link>
+              <div className="flex items-center gap-1 shrink-0 self-center">
+                {event.id && (
+                  <HeartButton eventId={event.id} initialHearted={event.hearted} size="sm" />
+                )}
+                <ChevronRight className="h-5 w-5 text-gray-300 dark:text-gray-600 group-hover:text-gray-500 dark:group-hover:text-gray-400 transition-colors" />
               </div>
-              <ChevronRight className="h-5 w-5 text-gray-300 dark:text-gray-600 group-hover:text-gray-500 dark:group-hover:text-gray-400 mt-1 shrink-0 transition-colors" />
-            </Link>
+            </div>
           ))}
         </div>
       )}
