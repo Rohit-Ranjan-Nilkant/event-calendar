@@ -13,6 +13,9 @@ export async function GET(request: NextRequest) {
   const endDate = searchParams.get("endDate")
   const hearted = searchParams.get("hearted")
   const discover = searchParams.get("discover")
+  const page = Math.max(1, parseInt(searchParams.get("page") ?? "1"))
+  const limit = Math.min(500, Math.max(10, parseInt(searchParams.get("limit") ?? "500")))
+  const skip = (page - 1) * limit
 
   const session = await getSession()
 
@@ -72,6 +75,22 @@ export async function GET(request: NextRequest) {
   const events = await prisma.event.findMany({
     where,
     orderBy: { startDate: "asc" },
+    skip,
+    take: limit,
+    select: {
+      id: true,
+      title: true,
+      description: true,
+      startDate: true,
+      endDate: true,
+      location: true,
+      url: true,
+      category: true,
+      organizer: true,
+      source: true,
+      isAllDay: true,
+      tags: true,
+    },
   })
 
   // Annotate with hearted status for the current user

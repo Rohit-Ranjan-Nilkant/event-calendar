@@ -5,6 +5,7 @@ import { Compass, MapPin, Clock, ExternalLink, Settings2 } from "lucide-react"
 import { format, parseISO } from "date-fns"
 import Link from "next/link"
 import HeartButton from "@/components/HeartButton"
+import { EventRowSkeleton } from "@/components/Skeleton"
 import type { EventData } from "@/types"
 import { INTERESTS } from "@/lib/interests"
 
@@ -91,9 +92,7 @@ export default function DiscoverPage() {
       )}
 
       {loading ? (
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600" />
-        </div>
+        <EventRowSkeleton count={5} />
       ) : userInterests.length === 0 ? (
         <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-16 text-center">
           <Compass className="h-12 w-12 text-gray-200 dark:text-gray-700 mx-auto mb-4" />

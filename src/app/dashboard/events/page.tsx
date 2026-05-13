@@ -6,20 +6,22 @@ import { format, parseISO } from "date-fns"
 import { Search, Filter, MapPin, Clock, ExternalLink, ChevronRight } from "lucide-react"
 import type { EventData } from "@/types"
 import HeartButton from "@/components/HeartButton"
+import { EventRowSkeleton } from "@/components/Skeleton"
+import { useDebounce } from "@/hooks/useDebounce"
 
 const CATEGORIES = ["all","General","Conference","Workshop","Webinar","Seminar","Meetup","Training","Award","Networking"]
-const SOURCES = ["all","manual","excel","url"]
+const SOURCES    = ["all","manual","excel","url"]
 
 const categoryColors: Record<string, string> = {
   Conference: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
-  Workshop: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
-  Webinar: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
-  Seminar: "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300",
-  Meetup: "bg-pink-100 text-pink-800 dark:bg-pink-900/30 dark:text-pink-300",
-  Training: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300",
-  Award: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",
+  Workshop:   "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
+  Webinar:    "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
+  Seminar:    "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300",
+  Meetup:     "bg-pink-100 text-pink-800 dark:bg-pink-900/30 dark:text-pink-300",
+  Training:   "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300",
+  Award:      "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",
   Networking: "bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-300",
-  General: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300",
+  General:    "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300",
 }
 
 export default function EventsPage() {
@@ -29,32 +31,32 @@ export default function EventsPage() {
   const [source, setSource] = useState("all")
   const [search, setSearch] = useState("")
 
+  const debouncedSearch = useDebounce(search, 400)
+
   const fetchEvents = useCallback(async () => {
     setLoading(true)
     const params = new URLSearchParams()
     if (category !== "all") params.set("category", category)
-    if (source !== "all") params.set("source", source)
-    if (search) params.set("search", search)
+    if (source !== "all")   params.set("source", source)
+    if (debouncedSearch)    params.set("search", debouncedSearch)
+
     const res = await fetch(`/api/events?${params}`)
     if (res.ok) {
       const data = await res.json()
       setEvents(
         data.map((e: Record<string, unknown>) => ({
           ...e,
-          startDate:
-            typeof e.startDate === "string"
-              ? e.startDate
-              : new Date(e.startDate as number).toISOString(),
+          startDate: typeof e.startDate === "string"
+            ? e.startDate
+            : new Date(e.startDate as number).toISOString(),
           endDate: e.endDate
-            ? typeof e.endDate === "string"
-              ? e.endDate
-              : new Date(e.endDate as number).toISOString()
+            ? typeof e.endDate === "string" ? e.endDate : new Date(e.endDate as number).toISOString()
             : undefined,
         }))
       )
     }
     setLoading(false)
-  }, [category, source, search])
+  }, [category, source, debouncedSearch])
 
   useEffect(() => { fetchEvents() }, [fetchEvents])
 
@@ -62,30 +64,49 @@ export default function EventsPage() {
     <div className="max-w-7xl mx-auto space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">All Events</h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{events.length} events found</p>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+          {loading ? "Loading…" : `${events.length} events found`}
+        </p>
       </div>
 
+      {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <input type="text" placeholder="Search events..." value={search} onChange={(e) => setSearch(e.target.value)} onKeyDown={(e) => e.key === "Enter" && fetchEvents()}
-            className="w-full pl-9 pr-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" />
+          <input
+            type="text"
+            placeholder="Search events… (auto-searches)"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full pl-9 pr-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+          />
         </div>
         <div className="relative">
           <Filter className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <select value={category} onChange={(e) => setCategory(e.target.value)}
-            className="pl-9 pr-8 py-2 border border-gray-300 dark:border-gray-700 rounded-lg text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white appearance-none focus:ring-2 focus:ring-indigo-500">
-            {CATEGORIES.map((c) => <option key={c} value={c}>{c === "all" ? "All Categories" : c}</option>)}
+          <select
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+            className="pl-9 pr-8 py-2 border border-gray-300 dark:border-gray-700 rounded-lg text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white appearance-none focus:ring-2 focus:ring-indigo-500"
+          >
+            {CATEGORIES.map((c) => (
+              <option key={c} value={c}>{c === "all" ? "All Categories" : c}</option>
+            ))}
           </select>
         </div>
-        <select value={source} onChange={(e) => setSource(e.target.value)}
-          className="px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white appearance-none focus:ring-2 focus:ring-indigo-500">
-          {SOURCES.map((s) => <option key={s} value={s}>{s === "all" ? "All Sources" : s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
+        <select
+          value={source}
+          onChange={(e) => setSource(e.target.value)}
+          className="px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white appearance-none focus:ring-2 focus:ring-indigo-500"
+        >
+          {SOURCES.map((s) => (
+            <option key={s} value={s}>{s === "all" ? "All Sources" : s.charAt(0).toUpperCase() + s.slice(1)}</option>
+          ))}
         </select>
       </div>
 
+      {/* List */}
       {loading ? (
-        <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600" /></div>
+        <EventRowSkeleton count={8} />
       ) : events.length === 0 ? (
         <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-12 text-center">
           <p className="text-gray-500 dark:text-gray-400">No events found</p>
@@ -95,21 +116,41 @@ export default function EventsPage() {
           {events.map((event) => (
             <div key={event.id} className="flex items-start gap-4 px-6 py-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 group transition-colors">
               <Link href={`/dashboard/events/${event.id}`} className="flex-shrink-0 w-14 text-center pt-1">
-                <div className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 uppercase">{format(parseISO(event.startDate), "MMM")}</div>
-                <div className="text-2xl font-bold text-gray-900 dark:text-white">{format(parseISO(event.startDate), "d")}</div>
+                <div className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 uppercase">
+                  {format(parseISO(event.startDate), "MMM")}
+                </div>
+                <div className="text-2xl font-bold text-gray-900 dark:text-white">
+                  {format(parseISO(event.startDate), "d")}
+                </div>
               </Link>
+
               <Link href={`/dashboard/events/${event.id}`} className="flex-1 min-w-0 block">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <h3 className="text-sm font-semibold text-gray-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">{event.title}</h3>
-                  <span className={`text-xs px-2 py-0.5 rounded-full ${categoryColors[event.category || "General"] || categoryColors.General}`}>{event.category}</span>
+                  <h3 className="text-sm font-semibold text-gray-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                    {event.title}
+                  </h3>
+                  <span className={`text-xs px-2 py-0.5 rounded-full ${categoryColors[event.category || "General"] ?? categoryColors.General}`}>
+                    {event.category}
+                  </span>
                 </div>
-                {event.description && <p className="text-sm text-gray-600 dark:text-gray-400 mt-0.5 line-clamp-1">{event.description}</p>}
+                {event.description && (
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mt-0.5 line-clamp-1">{event.description}</p>
+                )}
                 <div className="flex items-center gap-4 mt-1.5 text-xs text-gray-500 dark:text-gray-500 flex-wrap">
-                  <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{format(parseISO(event.startDate), "MMM d, yyyy h:mm a")}</span>
-                  {event.location && <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{event.location}</span>}
-                  {event.url && <span className="flex items-center gap-1 text-indigo-600 dark:text-indigo-400"><ExternalLink className="h-3 w-3" />Link</span>}
+                  <span className="flex items-center gap-1">
+                    <Clock className="h-3 w-3" />{format(parseISO(event.startDate), "MMM d, yyyy h:mm a")}
+                  </span>
+                  {event.location && (
+                    <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{event.location}</span>
+                  )}
+                  {event.url && (
+                    <span className="flex items-center gap-1 text-indigo-600 dark:text-indigo-400">
+                      <ExternalLink className="h-3 w-3" />Link
+                    </span>
+                  )}
                 </div>
               </Link>
+
               <div className="flex items-center gap-1 shrink-0 self-center">
                 {event.id && (
                   <HeartButton eventId={event.id} initialHearted={event.hearted} size="sm" />

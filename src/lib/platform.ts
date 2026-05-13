@@ -1,7 +1,12 @@
+import { cache } from "react"
 import { prisma } from "@/lib/prisma"
 import { PlatformSettings, DEFAULT_PLATFORM } from "@/types"
 
-export async function getPlatformSettings(): Promise<PlatformSettings> {
+/**
+ * Memoised per-request with React cache() so multiple server components
+ * calling this in the same render tree share a single DB round-trip.
+ */
+export const getPlatformSettings = cache(async (): Promise<PlatformSettings> => {
   try {
     const settings = await prisma.platformSettings.upsert({
       where: { id: "singleton" },
@@ -16,7 +21,7 @@ export async function getPlatformSettings(): Promise<PlatformSettings> {
   } catch {
     return DEFAULT_PLATFORM
   }
-}
+})
 
 // Color palette map for the 6 preset themes
 export const COLOR_THEMES: Record<string, {
