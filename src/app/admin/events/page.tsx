@@ -7,6 +7,7 @@ import {
   PlusCircle, Search, Filter, MapPin, Clock,
   Trash2, Edit2, ExternalLink, User,
   ChevronLeft, ChevronRight, AlertTriangle,
+  Archive, ArchiveRestore,
 } from "lucide-react"
 import toast from "react-hot-toast"
 import type { EventData } from "@/types"
@@ -43,6 +44,8 @@ export default function AdminEventsPage() {
   const [total, setTotal]             = useState(0)
   const [confirmClear, setConfirmClear] = useState(false)
   const [clearingAll, setClearingAll]   = useState(false)
+  const [archiving, setArchiving]       = useState(false)
+  const [pendingArchive, setPendingArchive] = useState(0)
 
   const debouncedSearch = useDebounce(search, 400)
 
@@ -67,6 +70,35 @@ export default function AdminEventsPage() {
 
   // Reset to page 1 whenever filters change
   useEffect(() => { fetchEvents(1) }, [fetchEvents])
+
+  // Load pending-archive count on mount
+  useEffect(() => {
+    fetch("/api/admin/events/archive")
+      .then((r) => r.json())
+      .then((d) => setPendingArchive(d.pendingCount ?? 0))
+      .catch(() => {})
+  }, [])
+
+  const archiveNow = async () => {
+    setArchiving(true)
+    try {
+      const res = await fetch("/api/admin/events/archive", { method: "POST" })
+      if (res.ok) {
+        const { archived } = await res.json()
+        if (archived > 0) {
+          toast.success(`${archived} past event${archived !== 1 ? "s" : ""} archived`)
+          setPendingArchive(0)
+          fetchEvents(1)
+        } else {
+          toast.success("No past events to archive")
+        }
+      } else {
+        toast.error("Archive failed")
+      }
+    } finally {
+      setArchiving(false)
+    }
+  }
 
   const deleteEvent = async (id: string) => {
     if (!confirm("Delete this event?")) return
@@ -115,6 +147,29 @@ export default function AdminEventsPage() {
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
+          {/* View Archived link */}
+          <Link
+            href="/admin/events/archived"
+            className="inline-flex items-center gap-2 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+          >
+            <ArchiveRestore className="h-4 w-4" /> Archived
+          </Link>
+
+          {/* Archive Past Events */}
+          <button
+            onClick={archiveNow}
+            disabled={archiving}
+            className="inline-flex items-center gap-2 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/50 px-3 py-2 rounded-lg text-sm font-medium disabled:opacity-50 transition-colors relative"
+          >
+            <Archive className="h-4 w-4" />
+            {archiving ? "Archiving…" : "Archive Past Events"}
+            {pendingArchive > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] bg-amber-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1">
+                {pendingArchive}
+              </span>
+            )}
+          </button>
+
           {/* Clear All — inline confirm */}
           {confirmClear ? (
             <div className="flex items-center gap-2 bg-red-50 dark:bg-red-950/60 border border-red-200 dark:border-red-800 rounded-lg px-3 py-2">

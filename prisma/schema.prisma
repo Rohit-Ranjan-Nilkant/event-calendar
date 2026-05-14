@@ -38,10 +38,15 @@ model Event {
   isAllDay    Boolean     @default(false)
   tags        String?
   userId      String
+  archived    Boolean     @default(false)
+  archivedAt  DateTime?
   user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   savedBy     UserEvent[]
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
+
+  @@index([archived])
+  @@index([startDate])
 }
 
 model ScrapedUrl {

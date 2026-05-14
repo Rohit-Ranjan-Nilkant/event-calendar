@@ -53,6 +53,28 @@ export async function PUT(
   return Response.json(event)
 }
 
+/** PATCH — admin-only partial update, used to restore an archived event */
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  await requireAdmin()
+  const { id } = await params
+  const body = await request.json()
+
+  const existing = await prisma.event.findUnique({ where: { id } })
+  if (!existing) return Response.json({ error: "Event not found" }, { status: 404 })
+
+  const data: Record<string, unknown> = {}
+  if (typeof body.archived === "boolean") {
+    data.archived   = body.archived
+    data.archivedAt = body.archived ? (existing.archivedAt ?? new Date()) : null
+  }
+
+  const event = await prisma.event.update({ where: { id }, data })
+  return Response.json(event)
+}
+
 export async function DELETE(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }

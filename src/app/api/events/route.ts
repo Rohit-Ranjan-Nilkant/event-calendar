@@ -3,8 +3,11 @@ import { requireAdmin } from "@/lib/auth"
 import { getSession } from "@/lib/session"
 import { prisma } from "@/lib/prisma"
 import { INTEREST_KEYWORDS } from "@/lib/interests"
+import { maybeArchivePastEvents } from "@/lib/archive"
 
 export async function GET(request: NextRequest) {
+  // Silently archive past events in the background (rate-limited to 5 min intervals)
+  void maybeArchivePastEvents()
   const searchParams = request.nextUrl.searchParams
   const category = searchParams.get("category")
   const search = searchParams.get("search")
@@ -19,7 +22,9 @@ export async function GET(request: NextRequest) {
 
   const session = await getSession()
 
-  const where: Record<string, unknown> = {}
+  const where: Record<string, unknown> = {
+    archived: false, // never show archived events to end users
+  }
 
   // ── hearted: return only saved events for current user ────────────────────
   if (hearted === "true") {
