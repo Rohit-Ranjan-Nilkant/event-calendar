@@ -3,7 +3,7 @@
 import Link from "next/link"
 import Image from "next/image"
 import { usePathname, useRouter } from "next/navigation"
-import { Menu, X, LogIn, LogOut, Shield, User, Heart, Compass } from "lucide-react"
+import { Menu, X, LogIn, LogOut, Shield, Heart, Compass } from "lucide-react"
 import { useState, useEffect } from "react"
 import ThemeToggle from "./ThemeToggle"
 import { usePlatform } from "./PlatformProvider"
@@ -13,6 +13,34 @@ interface SessionInfo {
   email: string
   role: string
   name?: string
+  image?: string | null
+}
+
+/** Small avatar circle — shows the user's photo or their initial */
+function Avatar({ session, size = 28 }: { session: SessionInfo; size?: number }) {
+  const initial = (session.name ?? session.email)[0].toUpperCase()
+  const sz = `${size}px`
+  return (
+    <div
+      style={{ width: sz, height: sz }}
+      className="rounded-full overflow-hidden bg-indigo-100 dark:bg-indigo-900/40 ring-1 ring-indigo-200 dark:ring-indigo-700 flex items-center justify-center shrink-0"
+    >
+      {session.image ? (
+        <Image
+          src={session.image}
+          alt={session.name ?? session.email}
+          width={size}
+          height={size}
+          className="object-cover w-full h-full"
+        />
+      ) : (
+        <span className="font-bold text-indigo-600 dark:text-indigo-400 select-none leading-none"
+          style={{ fontSize: `${Math.round(size * 0.45)}px` }}>
+          {initial}
+        </span>
+      )}
+    </div>
+  )
 }
 
 export default function Header() {
@@ -98,9 +126,9 @@ export default function Header() {
               <div className="hidden sm:flex items-center gap-2">
                 <Link
                   href="/profile"
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                 >
-                  <User className="h-4 w-4 text-gray-400" />
+                  <Avatar session={session} size={28} />
                   <span className="text-sm text-gray-700 dark:text-gray-300 max-w-32 truncate">
                     {session.name ?? session.email}
                   </span>
@@ -165,9 +193,13 @@ export default function Header() {
                 <Link
                   href="/profile"
                   onClick={() => setMobileOpen(false)}
-                  className="block px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg"
+                  className="flex items-center gap-3 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg"
                 >
-                  Profile ({session.name ?? session.email})
+                  <Avatar session={session} size={32} />
+                  <div className="min-w-0">
+                    <div className="font-medium truncate">{session.name ?? "Profile"}</div>
+                    <div className="text-xs text-gray-400 truncate">{session.email}</div>
+                  </div>
                 </Link>
                 <button
                   onClick={handleLogout}

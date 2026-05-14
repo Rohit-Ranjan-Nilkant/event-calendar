@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react"
 import Link from "next/link"
 import { format, parseISO } from "date-fns"
-import { Search, Filter, MapPin, Clock, ExternalLink, ChevronRight } from "lucide-react"
+import { Search, Filter, MapPin, Clock, ExternalLink, ChevronRight, CalendarClock, History } from "lucide-react"
 import type { EventData } from "@/types"
 import HeartButton from "@/components/HeartButton"
 import { EventRowSkeleton } from "@/components/Skeleton"
@@ -27,15 +27,18 @@ const categoryColors: Record<string, string> = {
 export default function EventsPage() {
   const [events, setEvents] = useState<EventData[]>([])
   const [loading, setLoading] = useState(true)
+  const [tab, setTab]         = useState<"upcoming" | "past">("upcoming")
   const [category, setCategory] = useState("all")
   const [source, setSource] = useState("all")
   const [search, setSearch] = useState("")
 
   const debouncedSearch = useDebounce(search, 400)
+  const isPast = tab === "past"
 
   const fetchEvents = useCallback(async () => {
     setLoading(true)
     const params = new URLSearchParams()
+    if (isPast)              params.set("archived", "true")
     if (category !== "all") params.set("category", category)
     if (source !== "all")   params.set("source", source)
     if (debouncedSearch)    params.set("search", debouncedSearch)
@@ -56,17 +59,51 @@ export default function EventsPage() {
       )
     }
     setLoading(false)
-  }, [category, source, debouncedSearch])
+  }, [isPast, category, source, debouncedSearch])
 
   useEffect(() => { fetchEvents() }, [fetchEvents])
+
+  // Reset to page 1 when switching tabs
+  const switchTab = (next: "upcoming" | "past") => {
+    setSearch("")
+    setCategory("all")
+    setSource("all")
+    setTab(next)
+  }
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">All Events</h1>
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-          {loading ? "Loading…" : `${events.length} events found`}
+          {loading ? "Loading…" : `${events.length} ${isPast ? "past" : "upcoming"} event${events.length !== 1 ? "s" : ""}`}
         </p>
+      </div>
+
+      {/* Tab switcher */}
+      <div className="flex gap-1 bg-gray-100 dark:bg-gray-800 rounded-xl p-1 w-fit">
+        <button
+          onClick={() => switchTab("upcoming")}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+            !isPast
+              ? "bg-white dark:bg-gray-900 text-gray-900 dark:text-white shadow-sm"
+              : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+          }`}
+        >
+          <CalendarClock className="h-4 w-4" />
+          Upcoming
+        </button>
+        <button
+          onClick={() => switchTab("past")}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+            isPast
+              ? "bg-white dark:bg-gray-900 text-gray-900 dark:text-white shadow-sm"
+              : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+          }`}
+        >
+          <History className="h-4 w-4" />
+          Past Events
+        </button>
       </div>
 
       {/* Filters */}
@@ -75,7 +112,7 @@ export default function EventsPage() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
           <input
             type="text"
-            placeholder="Search events… (auto-searches)"
+            placeholder={`Search ${isPast ? "past" : "upcoming"} events…`}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full pl-9 pr-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
@@ -109,34 +146,66 @@ export default function EventsPage() {
         <EventRowSkeleton count={8} />
       ) : events.length === 0 ? (
         <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-12 text-center">
-          <p className="text-gray-500 dark:text-gray-400">No events found</p>
+          <History className={`h-10 w-10 mx-auto mb-3 ${isPast ? "text-amber-300 dark:text-amber-700" : "text-gray-200 dark:text-gray-700"}`} />
+          <p className="text-gray-500 dark:text-gray-400 font-medium">
+            {isPast ? "No past events found" : "No upcoming events found"}
+          </p>
+          {!isPast && (
+            <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">
+              Check back later or view past events using the tab above.
+            </p>
+          )}
         </div>
       ) : (
-        <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 divide-y divide-gray-100 dark:divide-gray-800">
+        <div className={`bg-white dark:bg-gray-900 rounded-xl border divide-y transition-all ${
+          isPast
+            ? "border-amber-100 dark:border-amber-900/30 divide-amber-50 dark:divide-amber-900/20"
+            : "border-gray-200 dark:border-gray-800 divide-gray-100 dark:divide-gray-800"
+        }`}>
           {events.map((event) => (
-            <div key={event.id} className="flex items-start gap-4 px-6 py-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 group transition-colors">
-              <Link href={`/dashboard/events/${event.id}`} className="flex-shrink-0 w-14 text-center pt-1">
-                <div className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 uppercase">
+            <div
+              key={event.id}
+              className={`flex items-start gap-4 px-6 py-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 group transition-colors ${
+                isPast ? "opacity-75 hover:opacity-100" : ""
+              }`}
+            >
+              {/* Date column */}
+              <Link href={`/dashboard/events/${event.id}`}
+                className={`flex-shrink-0 w-14 text-center pt-1 ${isPast ? "opacity-60" : ""}`}>
+                <div className={`text-xs font-semibold uppercase ${
+                  isPast ? "text-amber-600 dark:text-amber-500" : "text-indigo-600 dark:text-indigo-400"
+                }`}>
                   {format(parseISO(event.startDate), "MMM")}
                 </div>
-                <div className="text-2xl font-bold text-gray-900 dark:text-white">
+                <div className={`text-2xl font-bold ${
+                  isPast ? "text-gray-400 dark:text-gray-600" : "text-gray-900 dark:text-white"
+                }`}>
                   {format(parseISO(event.startDate), "d")}
                 </div>
               </Link>
 
               <Link href={`/dashboard/events/${event.id}`} className="flex-1 min-w-0 block">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <h3 className="text-sm font-semibold text-gray-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                  <h3 className={`text-sm font-semibold transition-colors ${
+                    isPast
+                      ? "text-gray-500 dark:text-gray-400"
+                      : "text-gray-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400"
+                  }`}>
                     {event.title}
                   </h3>
-                  <span className={`text-xs px-2 py-0.5 rounded-full ${categoryColors[event.category || "General"] ?? categoryColors.General}`}>
+                  <span className={`text-xs px-2 py-0.5 rounded-full opacity-80 ${categoryColors[event.category || "General"] ?? categoryColors.General}`}>
                     {event.category}
                   </span>
+                  {isPast && (
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400">
+                      past
+                    </span>
+                  )}
                 </div>
                 {event.description && (
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mt-0.5 line-clamp-1">{event.description}</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-500 mt-0.5 line-clamp-1">{event.description}</p>
                 )}
-                <div className="flex items-center gap-4 mt-1.5 text-xs text-gray-500 dark:text-gray-500 flex-wrap">
+                <div className="flex items-center gap-4 mt-1.5 text-xs text-gray-400 dark:text-gray-500 flex-wrap">
                   <span className="flex items-center gap-1">
                     <Clock className="h-3 w-3" />{format(parseISO(event.startDate), "MMM d, yyyy h:mm a")}
                   </span>
@@ -144,7 +213,7 @@ export default function EventsPage() {
                     <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{event.location}</span>
                   )}
                   {event.url && (
-                    <span className="flex items-center gap-1 text-indigo-600 dark:text-indigo-400">
+                    <span className="flex items-center gap-1 text-indigo-500 dark:text-indigo-400">
                       <ExternalLink className="h-3 w-3" />Link
                     </span>
                   )}
@@ -152,7 +221,7 @@ export default function EventsPage() {
               </Link>
 
               <div className="flex items-center gap-1 shrink-0 self-center">
-                {event.id && (
+                {!isPast && event.id && (
                   <HeartButton eventId={event.id} initialHearted={event.hearted} size="sm" />
                 )}
                 <ChevronRight className="h-5 w-5 text-gray-300 dark:text-gray-600 group-hover:text-gray-500 dark:group-hover:text-gray-400 transition-colors" />

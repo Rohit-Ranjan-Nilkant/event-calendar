@@ -22,8 +22,25 @@ export async function GET(request: NextRequest) {
 
   const session = await getSession()
 
+  // Users can browse past/archived events with ?archived=true
+  const showArchived = searchParams.get("archived") === "true"
+
   const where: Record<string, unknown> = {
-    archived: false, // never show archived events to end users
+    archived: showArchived,
+  }
+
+  // When showing upcoming events, apply a real-time date fence so events disappear
+  // the moment they end — regardless of when the background archive job last ran.
+  if (!showArchived) {
+    const now = new Date()
+    where.AND = [
+      {
+        OR: [
+          { endDate: { gte: now } },             // event hasn't ended yet
+          { endDate: null, startDate: { gte: now } }, // all-day / no end — hasn't started yet
+        ],
+      },
+    ]
   }
 
   // ── hearted: return only saved events for current user ────────────────────
@@ -79,7 +96,9 @@ export async function GET(request: NextRequest) {
 
   const events = await prisma.event.findMany({
     where,
-    orderBy: { startDate: "asc" },
+    orderBy: showArchived
+      ? { archivedAt: "desc" }  // most-recently archived first for past view
+      : { startDate: "asc" },
     skip,
     take: limit,
     select: {
@@ -95,6 +114,8 @@ export async function GET(request: NextRequest) {
       source: true,
       isAllDay: true,
       tags: true,
+      archived: true,
+      archivedAt: true,
     },
   })
 

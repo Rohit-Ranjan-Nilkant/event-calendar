@@ -13,6 +13,8 @@ export interface EventData {
   isAllDay?: boolean
   tags?: string
   hearted?: boolean
+  archived?: boolean
+  archivedAt?: string | null
 }
 
 export type CalendarView = "month" | "week" | "list"
