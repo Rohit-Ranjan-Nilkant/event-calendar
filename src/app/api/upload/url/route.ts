@@ -22,19 +22,24 @@ export async function POST(request: Request) {
   const existing = await prisma.scrapedUrl.findUnique({ where: { url: body.url } })
 
   let events
-  if (useLLM) {
-    // LLM path: fetch raw HTML, pass to claude-haiku-4-5
-    const html = await fetch(body.url, {
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-      },
-    }).then((r) => r.text())
-    events = await extractEventsWithLLM(html, body.url)
-    // Fall back to standard crawler if LLM returned nothing
-    if (!events.length) events = await crawlEventsFromUrl(body.url)
-  } else {
-    events = await crawlEventsFromUrl(body.url)
+  try {
+    if (useLLM) {
+      // LLM path: fetch raw HTML, pass to claude-haiku-4-5
+      const html = await fetch(body.url, {
+        headers: {
+          "User-Agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        },
+      }).then((r) => r.text())
+      events = await extractEventsWithLLM(html, body.url)
+      // Fall back to standard crawler if LLM returned nothing
+      if (!events.length) events = await crawlEventsFromUrl(body.url)
+    } else {
+      events = await crawlEventsFromUrl(body.url)
+    }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    return Response.json({ error: `Crawl failed: ${message}` }, { status: 422 })
   }
 
   return Response.json({

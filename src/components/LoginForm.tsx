@@ -8,7 +8,15 @@ import { loginAction, type ActionState } from "@/app/actions/auth"
 
 const initialState: ActionState = {}
 
-export default function LoginForm() {
+interface LoginFormProps {
+  platformName?: string
+  logoUrl?: string
+}
+
+export default function LoginForm({
+  platformName = "DS EventHub",
+  logoUrl = "/logo.png",
+}: LoginFormProps) {
   const [state, action, pending] = useActionState(loginAction, initialState)
 
   return (
@@ -16,8 +24,8 @@ export default function LoginForm() {
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="flex flex-col items-center mb-8">
-          <Image src="/logo.png" alt="DS EventHub" width={72} height={72} className="object-contain mb-3" />
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">DS EventHub</h1>
+          <Image src={logoUrl} alt={platformName} width={72} height={72} className="object-contain mb-3" />
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{platformName}</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Sign in to your account</p>
         </div>
 

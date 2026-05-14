@@ -494,6 +494,64 @@ function extractFromHtml(
     }
   }
 
+  // Table-based layouts (e.g. conferencealerts.in, many academic listing sites)
+  if (events.length === 0) {
+    $("table").each((_, table) => {
+      if (events.length > 0) return // already found events in a previous table
+      const $rows = $(table).find("tr")
+      if ($rows.length < 3) return // skip tiny/nav tables
+
+      const tableEvents: CrawledEvent[] = []
+      $rows.each((rowIdx, row) => {
+        if (rowIdx === 0) return // skip likely header row
+        const $cells = $(row).find("td")
+        if ($cells.length < 2) return
+
+        const $first = $cells.first()
+        const $link  = $first.find("a").first()
+        const title  = ($link.text().trim() || $first.text().trim()).replace(/\s+/g, " ")
+        if (!title || title.length < 4) return
+
+        let href = $link.attr("href") ?? ""
+        try {
+          href = href
+            ? (href.startsWith("http") ? href : new URL(href, targetUrl).toString())
+            : targetUrl
+        } catch { href = targetUrl }
+
+        let dateText = ""
+        let location = ""
+        $cells.each((ci, cell) => {
+          if (ci === 0) return
+          const text = $(cell).text().trim().replace(/\s+/g, " ")
+          if (
+            !dateText &&
+            /\d{4}|\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\b/i.test(text) &&
+            text.length < 80
+          ) {
+            dateText = text
+          } else if (
+            !location &&
+            text.length > 1 &&
+            text.length < 80 &&
+            !/deadline|abstract|submission|fee|price|\$/i.test(text)
+          ) {
+            location = text
+          }
+        })
+
+        tableEvents.push({
+          title,
+          startDate: dateText ? normaliseDate(dateText) : undefined,
+          location: location || undefined,
+          url: href,
+        })
+      })
+
+      if (tableEvents.length > 1) events.push(...tableEvents)
+    })
+  }
+
   // Last resort: headings adjacent to dates
   if (events.length === 0) {
     $("h2,h3,h4").each((_, el) => {

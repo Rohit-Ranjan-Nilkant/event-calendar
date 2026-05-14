@@ -1,13 +1,21 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
+import Image from "next/image"
 import {
   User, Bell, Heart, Save, Loader2, Check, TestTube2,
-  Mail, MessageSquare, Hash, Webhook
+  Mail, MessageSquare, Hash, Webhook, Camera, Pencil
 } from "lucide-react"
 import toast from "react-hot-toast"
 import { INTERESTS } from "@/lib/interests"
 import type { NotificationPreference } from "@/types"
+
+interface UserProfile {
+  id: string
+  name: string | null
+  email: string
+  image: string | null
+}
 
 const CHANNELS = [
   { value: "email", label: "Email", icon: Mail, placeholder: "you@example.com" },
@@ -17,6 +25,13 @@ const CHANNELS = [
 ]
 
 export default function ProfilePage() {
+  // ── Account ───────────────────────────────────────────────────────────────
+  const [profile, setProfile]           = useState<UserProfile | null>(null)
+  const [editName, setEditName]         = useState("")
+  const [savingName, setSavingName]     = useState(false)
+  const [uploadingAvatar, setUploadingAvatar] = useState(false)
+  const avatarInputRef = useRef<HTMLInputElement>(null)
+
   // ── Interests ─────────────────────────────────────────────────────────────
   const [selectedInterests, setSelectedInterests] = useState<string[]>([])
   const [savingInterests, setSavingInterests] = useState(false)
@@ -34,6 +49,11 @@ export default function ProfilePage() {
   const [loadingPref, setLoadingPref] = useState(true)
 
   useEffect(() => {
+    fetch("/api/users/profile")
+      .then((r) => r.json())
+      .then((d: UserProfile) => { setProfile(d); setEditName(d.name ?? "") })
+      .catch(() => {})
+
     fetch("/api/users/interests")
       .then((r) => r.json())
       .then((d: string[]) => setSelectedInterests(d ?? []))
@@ -48,6 +68,43 @@ export default function ProfilePage() {
       .catch(() => {})
       .finally(() => setLoadingPref(false))
   }, [])
+
+  const saveName = async () => {
+    if (!editName.trim()) { toast.error("Name cannot be empty"); return }
+    setSavingName(true)
+    try {
+      const res = await fetch("/api/users/profile", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: editName.trim() }),
+      })
+      if (!res.ok) throw new Error("Save failed")
+      const updated = await res.json() as UserProfile
+      setProfile(updated)
+      toast.success("Name updated!")
+    } catch {
+      toast.error("Failed to update name")
+    } finally {
+      setSavingName(false)
+    }
+  }
+
+  const uploadAvatar = async (file: File) => {
+    setUploadingAvatar(true)
+    try {
+      const form = new FormData()
+      form.append("file", file)
+      const res = await fetch("/api/users/profile/avatar", { method: "POST", body: form })
+      const data = await res.json() as { image?: string; error?: string }
+      if (!res.ok) throw new Error(data.error ?? "Upload failed")
+      setProfile((p) => p ? { ...p, image: data.image! } : p)
+      toast.success("Avatar updated!")
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Upload failed")
+    } finally {
+      setUploadingAvatar(false)
+    }
+  }
 
   const toggleInterest = (interest: string) => {
     setSelectedInterests((prev) =>
@@ -120,9 +177,87 @@ export default function ProfilePage() {
           My Profile
         </h1>
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-          Manage your interests and notification preferences.
+          Manage your account, interests and notification preferences.
         </p>
       </div>
+
+      {/* ── Account / Avatar ─────────────────────────────────────────────── */}
+      <section className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6 space-y-5">
+        <div className="flex items-center gap-2">
+          <User className="h-5 w-5 text-indigo-500" />
+          <h2 className="text-base font-semibold text-gray-900 dark:text-white">Account</h2>
+        </div>
+
+        <div className="flex items-center gap-5">
+          {/* Avatar */}
+          <div className="relative flex-shrink-0">
+            <div className="h-20 w-20 rounded-full overflow-hidden bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center ring-2 ring-indigo-200 dark:ring-indigo-800">
+              {profile?.image ? (
+                <Image
+                  src={profile.image}
+                  alt={profile.name ?? "Avatar"}
+                  width={80}
+                  height={80}
+                  className="object-cover w-full h-full"
+                />
+              ) : (
+                <span className="text-3xl font-bold text-indigo-600 dark:text-indigo-400 select-none">
+                  {(profile?.name ?? profile?.email ?? "?")[0].toUpperCase()}
+                </span>
+              )}
+            </div>
+            {/* Upload overlay button */}
+            <button
+              onClick={() => avatarInputRef.current?.click()}
+              disabled={uploadingAvatar}
+              className="absolute -bottom-1 -right-1 p-1.5 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white shadow-md transition-colors disabled:opacity-60"
+              title="Change avatar"
+            >
+              {uploadingAvatar
+                ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                : <Camera className="h-3.5 w-3.5" />
+              }
+            </button>
+            <input
+              ref={avatarInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0]
+                if (file) void uploadAvatar(file)
+                e.target.value = ""
+              }}
+            />
+          </div>
+
+          {/* Name + email */}
+          <div className="flex-1 min-w-0">
+            <p className="text-xs text-gray-400 dark:text-gray-500 mb-0.5">{profile?.email}</p>
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") void saveName() }}
+                placeholder="Your display name"
+                className="flex-1 min-w-0 px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded-lg text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              />
+              <button
+                onClick={() => void saveName()}
+                disabled={savingName || editName.trim() === (profile?.name ?? "")}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-40"
+              >
+                {savingName ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Pencil className="h-3.5 w-3.5" />}
+                Save
+              </button>
+            </div>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+              Supports JPEG, PNG, WebP · max 2 MB
+            </p>
+          </div>
+        </div>
+      </section>
 
       {/* ── Areas of interest ────────────────────────────────────────────── */}
       <section className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6 space-y-5">

@@ -54,3 +54,6 @@ next-env.d.ts
 
 # Local Netlify folder
 .netlify
+
+# User-uploaded avatars (created at runtime)
+/public/avatars/
