@@ -1,11 +1,15 @@
+import { getSession } from "@/lib/session"
 import FileUpload from "@/components/FileUpload"
 import UrlCrawler from "@/components/UrlCrawler"
 
-export default function AdminUploadPage() {
+export default async function AdminUploadPage() {
+  const session = await getSession()
+  const isSuperAdmin = session?.role === "SUPER_ADMIN"
+
   return (
     <div className="max-w-3xl mx-auto space-y-8">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Import Events</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Fetch Data</h1>
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Add events in bulk from files or web pages</p>
       </div>
 
@@ -19,7 +23,7 @@ export default function AdminUploadPage() {
       </div>
 
       <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6">
-        <UrlCrawler />
+        <UrlCrawler isSuperAdmin={isSuperAdmin} />
       </div>
     </div>
   )

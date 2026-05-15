@@ -11,10 +11,13 @@ export async function PUT(request: Request) {
   await requireAdmin()
   const body = await request.json()
 
+  // platformName may intentionally be empty — don't fallback to a default
+  const platformName = typeof body.platformName === "string" ? body.platformName.trim() : ""
+
   const settings = await prisma.platformSettings.upsert({
     where: { id: "singleton" },
     update: {
-      platformName: body.platformName,
+      platformName,
       logoUrl: body.logoUrl || null,
       primaryColor: body.primaryColor || "indigo",
       privacyPolicyUrl: body.privacyPolicyUrl || null,
@@ -24,7 +27,7 @@ export async function PUT(request: Request) {
     },
     create: {
       id: "singleton",
-      platformName: body.platformName || "DS EventHub",
+      platformName,
       logoUrl: body.logoUrl || null,
       primaryColor: body.primaryColor || "indigo",
       privacyPolicyUrl: body.privacyPolicyUrl || null,

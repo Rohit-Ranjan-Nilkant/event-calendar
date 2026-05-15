@@ -49,9 +49,16 @@ export default function ProfilePage() {
   const [loadingPref, setLoadingPref] = useState(true)
 
   useEffect(() => {
-    fetch("/api/users/profile")
+    // Run all three fetches in parallel; use profile email to prefill empty notification target
+    let profileEmail = ""
+
+    const profilePromise = fetch("/api/users/profile")
       .then((r) => r.json())
-      .then((d: UserProfile) => { setProfile(d); setEditName(d.name ?? "") })
+      .then((d: UserProfile) => {
+        profileEmail = d.email
+        setProfile(d)
+        setEditName(d.name ?? "")
+      })
       .catch(() => {})
 
     fetch("/api/users/interests")
@@ -60,13 +67,25 @@ export default function ProfilePage() {
       .catch(() => {})
       .finally(() => setLoadingInterests(false))
 
-    fetch("/api/notifications/preferences")
-      .then((r) => r.json())
-      .then((d: NotificationPreference | null) => {
-        if (d) setPref(d)
-      })
-      .catch(() => {})
-      .finally(() => setLoadingPref(false))
+    // Wait for profile before applying notification prefs so we have the email ready
+    profilePromise
+      .then(() =>
+        fetch("/api/notifications/preferences")
+          .then((r) => r.json())
+          .then((d: NotificationPreference | null) => {
+            if (d) {
+              // If the saved target is blank and channel is email, prefill with signup email
+              const target =
+                d.channel === "email" && !d.target ? profileEmail : d.target
+              setPref({ ...d, target })
+            } else {
+              // No saved preference yet — default to email channel + signup email
+              setPref((prev) => ({ ...prev, channel: "email", target: profileEmail }))
+            }
+          })
+          .catch(() => {})
+          .finally(() => setLoadingPref(false))
+      )
   }, [])
 
   const saveName = async () => {

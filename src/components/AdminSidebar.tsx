@@ -2,15 +2,15 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { LayoutDashboard, List, PlusCircle, Upload, Users, Settings } from "lucide-react"
+import { LayoutDashboard, List, PlusCircle, Database, Users, Settings } from "lucide-react"
 
 const navigation = [
-  { name: "Dashboard", href: "/admin/events", icon: LayoutDashboard },
+  { name: "Dashboard",  href: "/admin/events",     icon: LayoutDashboard },
   { name: "All Events", href: "/admin/events/list", icon: List },
-  { name: "Add Event", href: "/admin/events/new", icon: PlusCircle },
-  { name: "Import Events", href: "/admin/upload", icon: Upload },
-  { name: "Users", href: "/admin/users", icon: Users },
-  { name: "Settings", href: "/admin/settings", icon: Settings },
+  { name: "Add Event",  href: "/admin/events/new",  icon: PlusCircle },
+  { name: "Fetch Data", href: "/admin/upload",      icon: Database },
+  { name: "Users",      href: "/admin/users",       icon: Users },
+  { name: "Settings",   href: "/admin/settings",    icon: Settings },
 ]
 
 export default function AdminSidebar() {

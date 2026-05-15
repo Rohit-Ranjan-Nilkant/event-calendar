@@ -10,12 +10,14 @@ export async function GET(request: NextRequest) {
   void maybeArchivePastEvents()
   const searchParams = request.nextUrl.searchParams
   const category = searchParams.get("category")
-  const search = searchParams.get("search")
-  const source = searchParams.get("source")
+  const search   = searchParams.get("search")
+  const source   = searchParams.get("source")
+  const city     = searchParams.get("city")
+  const country  = searchParams.get("country")
   const startDate = searchParams.get("startDate")
-  const endDate = searchParams.get("endDate")
-  const hearted = searchParams.get("hearted")
-  const discover = searchParams.get("discover")
+  const endDate   = searchParams.get("endDate")
+  const hearted   = searchParams.get("hearted")
+  const discover  = searchParams.get("discover")
   const page = Math.max(1, parseInt(searchParams.get("page") ?? "1"))
   const limit = Math.min(500, Math.max(10, parseInt(searchParams.get("limit") ?? "500")))
   const skip = (page - 1) * limit
@@ -78,7 +80,18 @@ export async function GET(request: NextRequest) {
   }
 
   if (category && category !== "all") where.category = category
-  if (source && source !== "all") where.source = source
+  if (source   && source   !== "all") where.source   = source
+
+  // Geographical filters — both do a case-insensitive LIKE on the location field
+  if (city) {
+    const cityCondition = { location: { contains: city, mode: "insensitive" as const } }
+    where.AND = [...(Array.isArray(where.AND) ? where.AND as unknown[] : []), cityCondition]
+  }
+  if (country) {
+    const countryCondition = { location: { contains: country, mode: "insensitive" as const } }
+    where.AND = [...(Array.isArray(where.AND) ? where.AND as unknown[] : []), countryCondition]
+  }
+
   if (search) {
     where.OR = [
       { title: { contains: search, mode: "insensitive" } },

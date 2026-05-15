@@ -16,9 +16,17 @@ export async function requireSession() {
   return session
 }
 
+/** Allow both ADMIN and SUPER_ADMIN to access the admin panel */
 export async function requireAdmin() {
   const session = await getSession()
-  if (!session || session.role !== "ADMIN") redirect("/login")
+  if (!session || (session.role !== "ADMIN" && session.role !== "SUPER_ADMIN")) redirect("/login")
+  return session
+}
+
+/** Only SUPER_ADMIN may call this */
+export async function requireSuperAdmin() {
+  const session = await getSession()
+  if (!session || session.role !== "SUPER_ADMIN") redirect("/login")
   return session
 }
 

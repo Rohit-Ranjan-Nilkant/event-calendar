@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { format, parseISO } from "date-fns"
-import { Shield, User, Trash2, RefreshCw } from "lucide-react"
+import { Shield, User, Trash2, RefreshCw, Star } from "lucide-react"
 import toast from "react-hot-toast"
 
 interface UserRow {
@@ -18,9 +18,12 @@ export default function AdminUsersPage() {
   const [users, setUsers] = useState<UserRow[]>([])
   const [loading, setLoading] = useState(true)
   const [currentUserId, setCurrentUserId] = useState<string>("")
+  const [currentUserRole, setCurrentUserRole] = useState<string>("")
 
   useEffect(() => {
-    fetch("/api/auth/me").then(r => r.json()).then(d => d && setCurrentUserId(d.userId))
+    fetch("/api/auth/me")
+      .then(r => r.json())
+      .then(d => { if (d) { setCurrentUserId(d.userId); setCurrentUserRole(d.role) } })
     loadUsers()
   }, [])
 
@@ -31,16 +34,20 @@ export default function AdminUsersPage() {
     setLoading(false)
   }
 
-  const toggleRole = async (id: string, currentRole: string) => {
-    const newRole = currentRole === "ADMIN" ? "USER" : "ADMIN"
+  /** Cycle: USER → ADMIN → SUPER_ADMIN → USER */
+  const cycleRole = async (id: string, currentRole: string) => {
+    const next =
+      currentRole === "USER"        ? "ADMIN" :
+      currentRole === "ADMIN"       ? "SUPER_ADMIN" :
+      /* SUPER_ADMIN */                "USER"
     const res = await fetch(`/api/admin/users/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ role: newRole }),
+      body: JSON.stringify({ role: next }),
     })
     if (res.ok) {
-      toast.success(`Role updated to ${newRole}`)
-      setUsers(users.map(u => u.id === id ? { ...u, role: newRole } : u))
+      toast.success(`Role updated to ${next}`)
+      setUsers(users.map(u => u.id === id ? { ...u, role: next } : u))
     } else {
       toast.error("Failed to update role")
     }
@@ -100,26 +107,39 @@ export default function AdminUsersPage() {
                     </div>
                   </td>
                   <td className="px-6 py-4">
-                    <span className={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full font-medium ${
-                      user.role === "ADMIN"
-                        ? "bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300"
-                        : "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300"
-                    }`}>
-                      {user.role === "ADMIN" ? <Shield className="h-3 w-3" /> : <User className="h-3 w-3" />}
-                      {user.role}
-                    </span>
+                    {user.role === "SUPER_ADMIN" ? (
+                      <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full font-medium bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300">
+                        <Star className="h-3 w-3" /> Super Admin
+                      </span>
+                    ) : user.role === "ADMIN" ? (
+                      <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full font-medium bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300">
+                        <Shield className="h-3 w-3" /> Admin
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full font-medium bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300">
+                        <User className="h-3 w-3" /> User
+                      </span>
+                    )}
                   </td>
                   <td className="px-6 py-4 text-gray-600 dark:text-gray-400">{user._count?.events ?? 0}</td>
                   <td className="px-6 py-4 text-gray-600 dark:text-gray-400">{format(parseISO(user.createdAt), "MMM d, yyyy")}</td>
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-1 justify-end">
                       <button
-                        onClick={() => toggleRole(user.id, user.role)}
-                        disabled={user.id === currentUserId}
+                        onClick={() => cycleRole(user.id, user.role)}
+                        disabled={
+                          user.id === currentUserId ||
+                          // Only SUPER_ADMIN can promote to/demote from SUPER_ADMIN
+                          (user.role === "ADMIN" && currentUserRole !== "SUPER_ADMIN")
+                        }
                         className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                        title={user.role === "ADMIN" ? "Demote to User" : "Promote to Admin"}
+                        title={
+                          user.role === "USER"        ? "Promote to Admin" :
+                          user.role === "ADMIN"       ? "Promote to Super Admin" :
+                          /* SUPER_ADMIN */              "Demote to User"
+                        }
                       >
-                        <Shield className="h-4 w-4" />
+                        {user.role === "ADMIN" ? <Star className="h-4 w-4" /> : <Shield className="h-4 w-4" />}
                       </button>
                       <button
                         onClick={() => deleteUser(user.id)}

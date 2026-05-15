@@ -16,7 +16,11 @@ interface CrawledEvent {
 
 const PAGE_SIZE = 50
 
-export default function UrlCrawler() {
+interface UrlCrawlerProps {
+  isSuperAdmin?: boolean
+}
+
+export default function UrlCrawler({ isSuperAdmin = false }: UrlCrawlerProps) {
   const [url, setUrl] = useState("")
   const [loading, setLoading] = useState(false)
   const [useLLM, setUseLLM] = useState(false)
@@ -124,7 +128,7 @@ export default function UrlCrawler() {
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Import from URL</h3>
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Fetch Data from URL</h3>
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
           Paste an events page URL and we&apos;ll extract all events automatically.
           Supports JSON-LD, WordPress/Tribe, iCal, Eventbrite, Lu.ma, Meetup, and HTML layouts.
@@ -150,33 +154,37 @@ export default function UrlCrawler() {
             className="px-6 py-2.5 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-2 whitespace-nowrap transition-colors"
           >
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            {loading ? "Crawling…" : "Crawl"}
+            {loading ? "Fetching…" : "Fetch Data"}
           </button>
         </div>
 
-        {/* LLM toggle */}
-        <label className="flex items-center gap-3 cursor-pointer w-fit">
-          <div className="relative">
-            <input
-              type="checkbox"
-              className="sr-only peer"
-              checked={useLLM}
-              onChange={(e) => setUseLLM(e.target.checked)}
-            />
-            <div className="w-10 h-5 bg-gray-200 dark:bg-gray-700 peer-checked:bg-indigo-600 rounded-full transition-colors" />
-            <div className="absolute top-0.5 left-0.5 h-4 w-4 bg-white rounded-full transition-transform peer-checked:translate-x-5 shadow" />
-          </div>
-          <span className="flex items-center gap-1.5 text-sm text-gray-700 dark:text-gray-300">
-            <Sparkles className="h-4 w-4 text-amber-500" />
-            Use AI (Claude) for extraction
-          </span>
-          <span className="text-xs text-gray-400 dark:text-gray-500">(requires ANTHROPIC_API_KEY)</span>
-        </label>
-        {useLLM && !hasAnthropicKey && (
-          <p className="text-xs text-amber-700 dark:text-amber-400 flex items-center gap-1">
-            <AlertTriangle className="h-3.5 w-3.5" />
-            AI extraction will silently fall back to standard crawling if the API key is not set.
-          </p>
+        {/* LLM toggle — SUPER_ADMIN only */}
+        {isSuperAdmin && (
+          <>
+            <label className="flex items-center gap-3 cursor-pointer w-fit">
+              <div className="relative">
+                <input
+                  type="checkbox"
+                  className="sr-only peer"
+                  checked={useLLM}
+                  onChange={(e) => setUseLLM(e.target.checked)}
+                />
+                <div className="w-10 h-5 bg-gray-200 dark:bg-gray-700 peer-checked:bg-indigo-600 rounded-full transition-colors" />
+                <div className="absolute top-0.5 left-0.5 h-4 w-4 bg-white rounded-full transition-transform peer-checked:translate-x-5 shadow" />
+              </div>
+              <span className="flex items-center gap-1.5 text-sm text-gray-700 dark:text-gray-300">
+                <Sparkles className="h-4 w-4 text-amber-500" />
+                Use AI (Claude) for extraction
+              </span>
+              <span className="text-xs text-gray-400 dark:text-gray-500">(requires ANTHROPIC_API_KEY)</span>
+            </label>
+            {useLLM && !hasAnthropicKey && (
+              <p className="text-xs text-amber-700 dark:text-amber-400 flex items-center gap-1">
+                <AlertTriangle className="h-3.5 w-3.5" />
+                AI extraction will silently fall back to standard crawling if the API key is not set.
+              </p>
+            )}
+          </>
         )}
       </div>
 

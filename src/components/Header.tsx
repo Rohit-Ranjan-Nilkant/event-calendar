@@ -64,7 +64,8 @@ export default function Header() {
     router.refresh()
   }
 
-  const isAdmin = session?.role === "ADMIN"
+  const isAdmin      = session?.role === "ADMIN" || session?.role === "SUPER_ADMIN"
+  const isSuperAdmin = session?.role === "SUPER_ADMIN"
 
   const publicLinks = [
     { name: "Calendar", href: "/dashboard" },
@@ -85,13 +86,15 @@ export default function Header() {
           <div className="flex items-center gap-6">
             <Link href="/dashboard" className="flex items-center gap-2 shrink-0">
               {platform.logoUrl ? (
-                <Image src={platform.logoUrl} alt={platform.platformName} width={36} height={36} className="object-contain" />
+                <Image src={platform.logoUrl} alt={platform.platformName || "Logo"} width={36} height={36} className="object-contain" />
               ) : (
-                <Image src="/logo.png" alt={platform.platformName} width={36} height={36} className="object-contain" />
+                <Image src="/logo.png" alt={platform.platformName || "Logo"} width={36} height={36} className="object-contain" />
               )}
-              <span className="text-base font-bold text-gray-900 dark:text-white hidden sm:block">
-                {platform.platformName}
-              </span>
+              {platform.platformName && (
+                <span className="text-base font-bold text-gray-900 dark:text-white hidden sm:block">
+                  {platform.platformName}
+                </span>
+              )}
             </Link>
 
             <nav className="hidden md:flex items-center gap-0.5">
@@ -132,11 +135,15 @@ export default function Header() {
                   <span className="text-sm text-gray-700 dark:text-gray-300 max-w-32 truncate">
                     {session.name ?? session.email}
                   </span>
-                  {isAdmin && (
+                  {isSuperAdmin ? (
+                    <span className="text-xs px-1.5 py-0.5 bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 rounded font-medium">
+                      Super Admin
+                    </span>
+                  ) : isAdmin ? (
                     <span className="text-xs px-1.5 py-0.5 bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 rounded font-medium">
                       Admin
                     </span>
-                  )}
+                  ) : null}
                 </Link>
                 <button
                   onClick={handleLogout}

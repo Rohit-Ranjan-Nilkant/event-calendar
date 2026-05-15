@@ -100,9 +100,10 @@ export default function AdminSettingsPage() {
             type="text"
             value={form.platformName}
             onChange={(e) => set("platformName", e.target.value)}
-            placeholder="DS EventHub"
+            placeholder="Leave blank to hide the app name"
             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
           />
+          <p className="text-xs text-gray-400 mt-1">Leave blank to hide the platform name everywhere (logo only)</p>
         </div>
 
         <div>

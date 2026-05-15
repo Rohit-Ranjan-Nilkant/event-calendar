@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react"
 import Link from "next/link"
 import { format, parseISO } from "date-fns"
-import { Search, Filter, MapPin, Clock, ExternalLink, ChevronRight, CalendarClock, History } from "lucide-react"
+import { Search, Filter, MapPin, Clock, ExternalLink, ChevronRight, CalendarClock, History, Globe } from "lucide-react"
 import type { EventData } from "@/types"
 import HeartButton from "@/components/HeartButton"
 import { EventRowSkeleton } from "@/components/Skeleton"
@@ -27,12 +27,16 @@ const categoryColors: Record<string, string> = {
 export default function EventsPage() {
   const [events, setEvents] = useState<EventData[]>([])
   const [loading, setLoading] = useState(true)
-  const [tab, setTab]         = useState<"upcoming" | "past">("upcoming")
+  const [tab, setTab]           = useState<"upcoming" | "past">("upcoming")
   const [category, setCategory] = useState("all")
-  const [source, setSource] = useState("all")
-  const [search, setSearch] = useState("")
+  const [source, setSource]     = useState("all")
+  const [search, setSearch]     = useState("")
+  const [city, setCity]         = useState("")
+  const [country, setCountry]   = useState("")
 
-  const debouncedSearch = useDebounce(search, 400)
+  const debouncedSearch  = useDebounce(search,  400)
+  const debouncedCity    = useDebounce(city,    400)
+  const debouncedCountry = useDebounce(country, 400)
   const isPast = tab === "past"
 
   const fetchEvents = useCallback(async () => {
@@ -41,7 +45,9 @@ export default function EventsPage() {
     if (isPast)              params.set("archived", "true")
     if (category !== "all") params.set("category", category)
     if (source !== "all")   params.set("source", source)
-    if (debouncedSearch)    params.set("search", debouncedSearch)
+    if (debouncedSearch)    params.set("search",  debouncedSearch)
+    if (debouncedCity)      params.set("city",    debouncedCity)
+    if (debouncedCountry)   params.set("country", debouncedCountry)
 
     const res = await fetch(`/api/events?${params}`)
     if (res.ok) {
@@ -59,15 +65,17 @@ export default function EventsPage() {
       )
     }
     setLoading(false)
-  }, [isPast, category, source, debouncedSearch])
+  }, [isPast, category, source, debouncedSearch, debouncedCity, debouncedCountry])
 
   useEffect(() => { fetchEvents() }, [fetchEvents])
 
-  // Reset to page 1 when switching tabs
+  // Reset filters when switching tabs
   const switchTab = (next: "upcoming" | "past") => {
     setSearch("")
     setCategory("all")
     setSource("all")
+    setCity("")
+    setCountry("")
     setTab(next)
   }
 
@@ -106,7 +114,7 @@ export default function EventsPage() {
         </button>
       </div>
 
-      {/* Filters */}
+      {/* Filters — row 1: search + category + source */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -139,6 +147,38 @@ export default function EventsPage() {
             <option key={s} value={s}>{s === "all" ? "All Sources" : s.charAt(0).toUpperCase() + s.slice(1)}</option>
           ))}
         </select>
+      </div>
+
+      {/* Filters — row 2: city + country (geographical) */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1">
+          <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Filter by city…"
+            value={city}
+            onChange={(e) => setCity(e.target.value)}
+            className="w-full pl-9 pr-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+          />
+        </div>
+        <div className="relative flex-1">
+          <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Filter by country…"
+            value={country}
+            onChange={(e) => setCountry(e.target.value)}
+            className="w-full pl-9 pr-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+          />
+        </div>
+        {(city || country) && (
+          <button
+            onClick={() => { setCity(""); setCountry("") }}
+            className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors whitespace-nowrap"
+          >
+            Clear location
+          </button>
+        )}
       </div>
 
       {/* List */}
