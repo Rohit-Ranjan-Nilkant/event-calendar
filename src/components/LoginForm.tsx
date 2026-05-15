@@ -1,12 +1,10 @@
 "use client"
 
-import { useActionState } from "react"
+import { useState, useTransition } from "react"
+import { useRouter } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
 import { Loader2 } from "lucide-react"
-import { loginAction, type ActionState } from "@/app/actions/auth"
-
-const initialState: ActionState = {}
 
 interface LoginFormProps {
   platformName?: string
@@ -17,7 +15,38 @@ export default function LoginForm({
   platformName = "DS EventHub",
   logoUrl = "/logo.png",
 }: LoginFormProps) {
-  const [state, action, pending] = useActionState(loginAction, initialState)
+  const router = useRouter()
+  const [isPending, startTransition] = useTransition()
+  const [error, setError] = useState<string | null>(null)
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    setError(null)
+
+    const form = e.currentTarget
+    const email = (form.elements.namedItem("email") as HTMLInputElement).value.trim().toLowerCase()
+    const password = (form.elements.namedItem("password") as HTMLInputElement).value
+
+    startTransition(async () => {
+      try {
+        const res = await fetch("/api/auth/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ email, password }),
+        })
+        const data = await res.json() as { error?: string; role?: string }
+        if (!res.ok) {
+          setError(data.error ?? "Login failed")
+          return
+        }
+        router.push(data.role === "ADMIN" || data.role === "SUPER_ADMIN" ? "/admin/events" : "/dashboard")
+        router.refresh()
+      } catch {
+        setError("Network error — please try again")
+      }
+    })
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950 px-4">
@@ -30,13 +59,13 @@ export default function LoginForm({
         </div>
 
         <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800 p-8">
-          {state.error && (
+          {error && (
             <div className="mb-5 px-4 py-3 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg text-sm text-red-700 dark:text-red-400">
-              {state.error}
+              {error}
             </div>
           )}
 
-          <form action={action} className="space-y-5">
+          <form onSubmit={handleSubmit} className="space-y-5">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                 Email address
@@ -67,11 +96,11 @@ export default function LoginForm({
 
             <button
               type="submit"
-              disabled={pending}
+              disabled={isPending}
               className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium disabled:opacity-50 flex items-center justify-center gap-2 transition-colors"
             >
-              {pending && <Loader2 className="h-4 w-4 animate-spin" />}
-              {pending ? "Signing in…" : "Sign in"}
+              {isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+              {isPending ? "Signing in…" : "Sign in"}
             </button>
           </form>
 

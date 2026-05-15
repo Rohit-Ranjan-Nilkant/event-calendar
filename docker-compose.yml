@@ -1,0 +1,78 @@
+version: "3.9"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Event Calendar — Docker Compose
+#
+# Services
+#   postgres  – self-hosted PostgreSQL 16
+#   backend   – Express API  (port 4000, internal only)
+#   frontend  – Next.js app  (port 3000, internal only)
+#
+# Nginx (on the host) proxies:
+#   /api/*     → backend:4000
+#   /avatars/* → backend:4000
+#   /*         → frontend:3000
+#
+# Quick start
+#   cp .env.example .env   # fill in secrets
+#   docker compose up -d --build
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+
+  # ── PostgreSQL ──────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB:       ${POSTGRES_DB:-eventcalendar}
+      POSTGRES_USER:     ${POSTGRES_USER:-ecuser}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ecuser}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Express backend ─────────────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV:          production
+      PORT:              4000
+      DATABASE_URL:      postgresql://${POSTGRES_USER:-ecuser}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-eventcalendar}
+      SESSION_SECRET:    ${SESSION_SECRET}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      FRONTEND_URL:      ${FRONTEND_URL:-http://localhost:3000}
+      UPLOADS_DIR:       /app/uploads
+    volumes:
+      - uploads:/app/uploads
+    ports:
+      - "127.0.0.1:4000:4000"
+
+  # ── Next.js frontend ────────────────────────────────────────────────────────
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      NODE_ENV:              production
+      SESSION_SECRET:        ${SESSION_SECRET}
+      BACKEND_INTERNAL_URL:  http://backend:4000
+    ports:
+      - "127.0.0.1:3000:3000"
+
+volumes:
+  postgres_data:
+  uploads:

@@ -17,9 +17,34 @@ interface EventDetail {
   category?: string
   organizer?: string
   source?: string
+  sourceUrl?: string | null
   isAllDay?: boolean
   tags?: string
   hearted?: boolean
+}
+
+/** Decode HTML entities and strip any residual tags so stored descriptions render cleanly. */
+function cleanDescription(raw: string): string {
+  return raw
+    // Named entities
+    .replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&")
+    .replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&nbsp;/g, " ")
+    .replace(/&hellip;/g, "…").replace(/&mdash;/g, "—").replace(/&ndash;/g, "–")
+    .replace(/&laquo;/g, "«").replace(/&raquo;/g, "»").replace(/&copy;/g, "©")
+    // Numeric entities (decimal + hex)
+    .replace(/&#(\d+);/g, (_, c) => String.fromCharCode(+c))
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, c) => String.fromCharCode(parseInt(c, 16)))
+    // Strip any HTML tags that became visible after decoding
+    .replace(/<[^>]*>/g, "")
+    // Normalize whitespace while preserving paragraph breaks
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim()
+}
+
+/** Extract the hostname from a URL for display, stripping www. prefix. */
+function safeHostname(url: string): string {
+  try { return new URL(url).hostname.replace(/^www\./, "") } catch { return url }
 }
 
 const categoryColors: Record<string, string> = {
@@ -136,12 +161,28 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
               </div>
             )}
 
-            {event.source && (
+            {(event.source || event.sourceUrl) && (
               <div className="flex items-start gap-3">
                 <Globe className="h-5 w-5 text-indigo-500 mt-0.5 shrink-0" />
                 <div>
                   <div className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-0.5">Source</div>
-                  <div className="text-sm font-medium text-gray-900 dark:text-white capitalize">{event.source}</div>
+                  <div className="text-sm font-medium text-gray-900 dark:text-white">
+                    {event.source === "url" ? "Web import"
+                      : event.source === "excel" ? "Excel import"
+                      : event.source === "manual" ? "Manual entry"
+                      : event.source ?? "Unknown"}
+                  </div>
+                  {event.sourceUrl && (
+                    <a
+                      href={event.sourceUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-xs text-indigo-600 dark:text-indigo-400 hover:underline mt-0.5"
+                    >
+                      <ExternalLink className="h-3 w-3" />
+                      {safeHostname(event.sourceUrl)}
+                    </a>
+                  )}
                 </div>
               </div>
             )}
@@ -170,7 +211,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
                 <span className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Description</span>
               </div>
               <div className="prose prose-sm dark:prose-invert max-w-none">
-                <p className="text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">{event.description}</p>
+                <p className="text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">{cleanDescription(event.description)}</p>
               </div>
             </div>
           )}

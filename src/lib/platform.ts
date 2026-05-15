@@ -1,23 +1,21 @@
 import { cache } from "react"
-import { prisma } from "@/lib/prisma"
 import { PlatformSettings, DEFAULT_PLATFORM } from "@/types"
+
+// Server-side: call Express backend directly (internal Docker network / localhost).
+// Never call this from client components — use the /api/platform/settings route via fetch instead.
+const BACKEND_URL = process.env.BACKEND_INTERNAL_URL || "http://localhost:4000"
 
 /**
  * Memoised per-request with React cache() so multiple server components
- * calling this in the same render tree share a single DB round-trip.
+ * calling this in the same render tree share a single HTTP round-trip.
  */
 export const getPlatformSettings = cache(async (): Promise<PlatformSettings> => {
   try {
-    const settings = await prisma.platformSettings.upsert({
-      where: { id: "singleton" },
-      update: {},
-      create: {
-        id: "singleton",
-        platformName: DEFAULT_PLATFORM.platformName,
-        primaryColor: DEFAULT_PLATFORM.primaryColor,
-      },
+    const res = await fetch(`${BACKEND_URL}/api/platform/settings`, {
+      next: { revalidate: 60 },
     })
-    return settings as PlatformSettings
+    if (!res.ok) return DEFAULT_PLATFORM
+    return res.json() as Promise<PlatformSettings>
   } catch {
     return DEFAULT_PLATFORM
   }

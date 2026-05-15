@@ -1,0 +1,32 @@
+node_modules
+.next
+.git
+.gitignore
+
+# Never bake secrets into the image
+.env
+.env.*
+!.env.example
+
+# Build artefacts
+coverage
+*.tsbuildinfo
+next-env.d.ts
+
+# Dev / OS noise
+.DS_Store
+npm-debug.log*
+yarn-debug.log*
+*.pem
+
+# Deployment & platform folders (not needed inside Docker)
+.netlify
+.vercel
+deploy
+
+# Runtime-generated files (restored from Docker volume at startup)
+public/avatars
+
+# CI
+Jenkinsfile
+.claude

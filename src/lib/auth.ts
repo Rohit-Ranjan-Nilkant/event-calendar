@@ -1,14 +1,7 @@
-import { compare, hash } from "bcryptjs"
+// Frontend-only auth helpers — no Prisma, no bcrypt.
+// All password operations and session creation live in the Express backend.
 import { redirect } from "next/navigation"
 import { getSession } from "./session"
-
-export async function hashPassword(plain: string): Promise<string> {
-  return hash(plain, 12)
-}
-
-export async function verifyPassword(plain: string, hashed: string): Promise<boolean> {
-  return compare(plain, hashed)
-}
 
 export async function requireSession() {
   const session = await getSession()

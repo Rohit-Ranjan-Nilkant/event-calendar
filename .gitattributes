@@ -1,0 +1,6 @@
+# Force Unix line endings for files that run on Linux.
+# Without this, Windows git may convert LF→CRLF and break shell scripts.
+*.sh        text eol=lf
+Dockerfile  text eol=lf
+Jenkinsfile text eol=lf
+*.conf      text eol=lf

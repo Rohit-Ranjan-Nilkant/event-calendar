@@ -1,17 +1,59 @@
 "use client"
 
-import { useActionState } from "react"
+import { useState, useTransition } from "react"
+import { useRouter } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
 import { Loader2 } from "lucide-react"
-import { registerAction, type ActionState } from "@/app/actions/auth"
-
-const initialState: ActionState = {}
 
 export default function RegisterForm() {
-  const [state, action, pending] = useActionState(registerAction, initialState)
+  const router = useRouter()
+  const [isPending, startTransition] = useTransition()
+  const [error, setError] = useState<string | null>(null)
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
 
-  const fe = state.fieldErrors ?? {}
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    setError(null)
+    setFieldErrors({})
+
+    const form = e.currentTarget
+    const name     = (form.elements.namedItem("name")     as HTMLInputElement).value.trim()
+    const email    = (form.elements.namedItem("email")    as HTMLInputElement).value.trim().toLowerCase()
+    const password = (form.elements.namedItem("password") as HTMLInputElement).value
+    const confirm  = (form.elements.namedItem("confirm")  as HTMLInputElement).value
+
+    // Client-side validation
+    const fe: Record<string, string> = {}
+    if (!name) fe.name = "Name is required"
+    if (!email || !email.includes("@")) fe.email = "Valid email required"
+    if (!password || password.length < 8) fe.password = "Password must be at least 8 characters"
+    if (password !== confirm) fe.confirm = "Passwords do not match"
+    if (Object.keys(fe).length > 0) { setFieldErrors(fe); return }
+
+    startTransition(async () => {
+      try {
+        const res = await fetch("/api/auth/register", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ name, email, password }),
+        })
+        const data = await res.json() as { error?: string; fieldErrors?: Record<string, string> }
+        if (!res.ok) {
+          if (data.fieldErrors) setFieldErrors(data.fieldErrors)
+          else setError(data.error ?? "Registration failed")
+          return
+        }
+        router.push("/dashboard")
+        router.refresh()
+      } catch {
+        setError("Network error — please try again")
+      }
+    })
+  }
+
+  const fe = fieldErrors
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950 px-4">
@@ -23,13 +65,13 @@ export default function RegisterForm() {
         </div>
 
         <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800 p-8">
-          {state.error && (
+          {error && (
             <div className="mb-5 px-4 py-3 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg text-sm text-red-700 dark:text-red-400">
-              {state.error}
+              {error}
             </div>
           )}
 
-          <form action={action} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Full name</label>
               <input
@@ -71,11 +113,11 @@ export default function RegisterForm() {
             </div>
 
             <button
-              type="submit" disabled={pending}
+              type="submit" disabled={isPending}
               className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium disabled:opacity-50 flex items-center justify-center gap-2 transition-colors mt-2"
             >
-              {pending && <Loader2 className="h-4 w-4 animate-spin" />}
-              {pending ? "Creating account…" : "Create account"}
+              {isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+              {isPending ? "Creating account…" : "Create account"}
             </button>
           </form>
 

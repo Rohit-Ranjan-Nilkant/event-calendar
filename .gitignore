@@ -57,3 +57,6 @@ next-env.d.ts
 
 # User-uploaded avatars (created at runtime)
 /public/avatars/
+
+# Backend lives in its own separate git repo (event-calender-be)
+/backend/

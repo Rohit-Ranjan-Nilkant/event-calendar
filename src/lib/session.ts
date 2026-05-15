@@ -1,8 +1,9 @@
-import { SignJWT, jwtVerify } from "jose"
+// Frontend-only: reads & verifies the JWT cookie set by the Express backend.
+// The backend is the only service that creates/destroys sessions.
+import { jwtVerify } from "jose"
 import { cookies } from "next/headers"
 
 const COOKIE_NAME = "ds-eventhub-session"
-const MAX_AGE = 60 * 60 * 24 * 7 // 7 days
 
 export interface SessionPayload {
   userId: string
@@ -16,23 +17,6 @@ function getSecret() {
   return new TextEncoder().encode(secret)
 }
 
-export async function createSession(payload: SessionPayload): Promise<void> {
-  const token = await new SignJWT({ ...payload })
-    .setProtectedHeader({ alg: "HS256" })
-    .setIssuedAt()
-    .setExpirationTime("7d")
-    .sign(getSecret())
-
-  const cookieStore = await cookies()
-  cookieStore.set(COOKIE_NAME, token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    maxAge: MAX_AGE,
-    path: "/",
-  })
-}
-
 export async function getSession(): Promise<SessionPayload | null> {
   try {
     const cookieStore = await cookies()
@@ -44,9 +28,4 @@ export async function getSession(): Promise<SessionPayload | null> {
   } catch {
     return null
   }
-}
-
-export async function destroySession(): Promise<void> {
-  const cookieStore = await cookies()
-  cookieStore.delete(COOKIE_NAME)
 }
